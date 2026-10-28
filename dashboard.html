@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Thai Opportunity Radar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a radar console. Summary strip, then picks, then two instruments (hype curve + discovery map), then the full screen table. */
+:root{
+  --bg:#f3f5f2; --panel:#ffffff; --ink:#18231f; --muted:#5d6b65; --line:#dbe2dd;
+  --accent:#0d6b5f; --accent-soft:#d6ebe6; --gold:#a8771c; --gold-soft:#f3e7cc;
+  --good:#1d8a4a; --warn:#b7791f; --bad:#c0392b; --info:#2f6fb0;
+  --zone:rgba(13,107,95,.09);
+  --f-display:"Chakra Petch","IBM Plex Sans Thai",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans Thai","Noto Sans Thai",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1513; --panel:#161f1c; --ink:#e4ece8; --muted:#94a59e; --line:#2a3632;
+  --accent:#4fc1ad; --accent-soft:#183a34; --gold:#e0b45a; --gold-soft:#3a2f17;
+  --good:#4ccf7f; --warn:#e5a84a; --bad:#ef6f61; --info:#6aa8e8; --zone:rgba(79,193,173,.10); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1513; --panel:#161f1c; --ink:#e4ece8; --muted:#94a59e; --line:#2a3632;
+  --accent:#4fc1ad; --accent-soft:#183a34; --gold:#e0b45a; --gold-soft:#3a2f17;
+  --good:#4ccf7f; --warn:#e5a84a; --bad:#ef6f61; --info:#6aa8e8; --zone:rgba(79,193,173,.10); color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.25}
+h1{font-size:clamp(26px,4vw,38px);letter-spacing:.01em}
+h2{font-size:21px}
+h3{font-size:16px}
+.num,td.n,.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.eyebrow{font:600 12px/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+header.top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;align-items:flex-end;border-bottom:2px solid var(--ink);padding-bottom:16px}
+header.top .meta{display:flex;flex-wrap:wrap;gap:18px}
+.stat{display:flex;flex-direction:column;gap:2px;min-width:110px}
+.stat b{font:600 20px/1.1 var(--f-mono)}
+.stat span{font-size:12px;color:var(--muted)}
+.disclaimer{font-size:12.5px;color:var(--muted);background:var(--gold-soft);border-radius:6px;padding:8px 12px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,.chip,select,input[type=search]{font:500 13px var(--f-body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer}
+button:hover,.chip:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--panel);border-color:var(--accent)}
+input[type=search]{cursor:text;min-width:0;width:200px;border-radius:6px}
+section.block{display:flex;flex-direction:column;gap:14px}
+.sec-head{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:baseline}
+.sec-tools{display:flex;gap:4px}
+.sec-tools button{padding:2px 9px;font-size:12px}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+.note p{margin:4px 0 0}
+/* picks */
+.picks{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.pick{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.pick .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.pick .sym{font:700 22px/1 var(--f-display)}
+.pick .score{font:600 26px/1 var(--f-mono);color:var(--accent)}
+.pick p{margin:0;font-size:13.5px}
+.bars{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;align-items:end;height:30px}
+.bars i{display:block;background:var(--accent);border-radius:2px 2px 0 0;opacity:.85}
+.bars-l{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;font-size:10px;color:var(--muted);text-align:center}
+.pill{display:inline-block;font:600 11.5px/1 var(--f-body);padding:4px 8px;border-radius:999px;white-space:nowrap}
+.t-a{background:var(--accent-soft);color:var(--accent)}
+.t-b{background:color-mix(in srgb,var(--info) 15%,transparent);color:var(--info)}
+.t-c{background:var(--gold-soft);color:var(--gold)}
+.t-d{background:color-mix(in srgb,var(--muted) 15%,transparent);color:var(--muted)}
+.t-e{background:color-mix(in srgb,var(--bad) 15%,transparent);color:var(--bad)}
+.tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.tl li{display:grid;grid-template-columns:86px 1fr;gap:10px;align-items:start;font-size:13.5px}
+.flag{font-size:11.5px;color:var(--bad)}
+.flags{display:flex;flex-wrap:wrap;gap:6px}
+/* instruments */
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.chart{width:100%;overflow-x:auto}
+.chart svg{display:block;width:100%;height:auto;min-width:480px}
+svg text{fill:var(--ink);font-family:var(--f-body)}
+svg .axis{stroke:var(--line)}
+svg .lbl{fill:var(--muted);font-size:11px}
+/* table */
+.tbl-wrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font:600 12px var(--f-display);letter-spacing:.04em;color:var(--muted);cursor:pointer;position:sticky;top:0;background:var(--panel)}
+th[aria-sort]{color:var(--accent)}
+td.n,th.n{text-align:right}
+tr.row:hover td{background:var(--accent-soft)}
+tr.row{cursor:pointer}
+tr.detail td{white-space:normal;background:var(--bg);font-size:13.5px}
+.up{color:var(--good)} .down{color:var(--bad)}
+.meter{display:inline-block;width:46px;height:6px;border-radius:3px;background:var(--line);vertical-align:middle;margin-left:6px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent)}
+/* weights */
+.weights{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px 18px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.weights label{display:flex;flex-direction:column;font-size:13px;gap:2px}
+.weights label span{display:flex;justify-content:space-between}
+input[type=range]{accent-color:var(--accent);width:100%}
+/* themes */
+.themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.theme{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.theme p{margin:0;font-size:13.5px}
+.theme dt{font:600 12px var(--f-display);color:var(--muted);margin-top:4px}
+.theme dd{margin:0;font-size:13.5px}
+.method{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 20px;max-width:none}
+.method li{margin-bottom:6px}
+.method ul{padding-left:20px;margin:6px 0}
+details summary{cursor:pointer;font-weight:600}
+@media (max-width:640px){ input[type=search]{width:100%} .stat{min-width:90px} }
+@media (prefers-reduced-motion:no-preference){ .pick,.theme{transition:border-color .15s} }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header class="top">
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+      <span class="eyebrow">SET · mai · มุมมอง 1 ปี / ธีม 3 ปี</span>
+      <h1 id="title">Thai Opportunity Radar</h1>
+      <span class="muted small" id="asof"></span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end"><nav id="nav" style="display:flex;flex-wrap:wrap;gap:6px" aria-label="หน้าอื่น"></nav><div class="meta" id="meta"></div></div>
+  </header>
+  <div class="disclaimer">งานวิจัยเพื่อประกอบการตัดสินใจเท่านั้น ไม่ใช่คำแนะนำให้ซื้อขาย คะแนนมาจากสูตรและดุลยพินิจที่แก้ไขได้ ควรตรวจงบล่าสุดและบริหารความเสี่ยง (ขนาดไม้ จุดตัดขาดทุน) ทุกครั้ง</div>
+  <div class="toolbar" id="layoutbar" aria-label="แสดง/ซ่อนส่วน"></div>
+  <div id="sections" style="display:flex;flex-direction:column;gap:34px"></div>
+</div>
+
+<script src="data/bundle.js"></script>
+<script>
+(function(){
+const R = window.RADAR;
+const app = document.getElementById('sections');
+if(!R){ app.innerHTML = '<p>ไม่พบ data/bundle.js ให้รัน <code>python scripts/update_data.py --offline</code> ในโฟลเดอร์โปรเจกต์ก่อน</p>'; return; }
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem('radar.'+k); return v? JSON.parse(v): d; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem('radar.'+k, JSON.stringify(v)); }catch(e){} }
+};
+const L = R.layout, T = R.themes, U = R.universe.stocks;
+const themeById = Object.fromEntries(T.themes.map(t=>[t.id,t]));
+const snaps = R.snapshots.slice().sort((a,b)=>a.date<b.date?-1:1);
+const cur = snaps[snaps.length-1], prev = snaps.length>1? snaps[snaps.length-2]: null;
+const FACTORS = [
+  ['theme','ธีม/Hype'],['growth','การเติบโต'],['value','ความคุ้มค่า'],['momentum','แนวโน้มราคา'],
+  ['discovery','ยังเห็นก่อนได้'],['smart','เงินฉลาด'],['quality','คุณภาพ/Moat'],['catalyst','ตัวเร่ง 12 เดือน']];
+const MK = Object.fromEntries(((R.market||{}).rows||[]).map(r=>[r.sym,r]));
+const QW = L.quant_weights || (R.market||{}).weights || null;
+if(R.market && QW){ R.market.rows.forEach(r=>{ let tw=0,t=0; Object.entries(QW).forEach(([k,w])=>{ if(r.s[k]!=null){ tw+=w; t+=w*r.s[k]; } }); if(tw) r.total = t/tw; }); R.market.rows.sort((a,b)=>b.total-a.total); }
+const EC = Object.fromEntries(((R.earnings||{}).rows||[]).map(r=>[r.sym,r]));
+let W = Object.assign({}, L.weights, store.get('weights', {}));
+let order = store.get('order', L.sections.map(s=>s.id));
+// sections added after a viewer saved their order slot in after their layout neighbour
+L.sections.forEach((s,i)=>{ if(!order.includes(s.id)){ const prev=i? L.sections[i-1].id : null, j=prev? order.indexOf(prev) : -1; order.splice(j+1,0,s.id); } });
+let hidden = store.get('hidden', L.sections.filter(s=>!s.visible).map(s=>s.id));
+let themeFilter = null, query = '', sortKey = store.get('sort', 'score'), sortDir = store.get('dir', -1), openRow = null;
+
+/* ---------- scoring ---------- */
+const clamp = (v,a=0,b=100)=>Math.max(a,Math.min(b,v));
+function interp(x, pts){ if(x<=pts[0][0]) return pts[0][1]; for(let i=1;i<pts.length;i++){ if(x<=pts[i][0]){ const [x0,y0]=pts[i-1],[x1,y1]=pts[i]; return y0+(y1-y0)*(x-x0)/(x1-x0);} } return pts[pts.length-1][1]; }
+function growthOf(q){
+  if(q.epsF!=null && q.epsCY>0) return q.epsF/q.epsCY-1;
+  if(q.epsF!=null && q.epsT>0) return q.epsF/q.epsT-1;
+  return null;
+}
+function score(st, q){
+  if(!q) return null;
+  const th = themeById[st.theme], stg = T.stages[th.stage];
+  const g = growthOf(q);
+  const s = {};
+  s.theme = clamp(stg.score*0.7 + th.tailwind*6);
+  s.growth = g==null? 40 : clamp(40 + g*300);
+  // value = half plain P/E, half PEG, so cheap low-growth names and fast growers both get credit
+  let peg = null;
+  const pe = q.fpe ?? q.tpe;
+  const peScore = pe!=null && pe>0? clamp(100 - (pe-6)*3.5) : 35;
+  if(q.fpe!=null && g!=null && g>0.02){ peg = q.fpe/(Math.min(g,0.4)*100); s.value = 0.5*peScore + 0.5*clamp(110 - peg*35); }
+  else s.value = peScore*0.8;
+  if(q.pb!=null && q.pb<1) s.value = clamp(s.value+8);
+  if(q.dy!=null && q.dy>=5) s.value = clamp(s.value+5);
+  const r200 = q.ma200? q.p/q.ma200-1 : 0;
+  s.momentum = interp(r200, [[-0.2,10],[-0.1,30],[0,55],[0.1,85],[0.25,100],[0.5,75],[0.8,45],[1.2,25]]);
+  if(q.ma50 && q.ma200) s.momentum = clamp(s.momentum + (q.ma50>q.ma200? 8 : -8));
+  const pos = (q.hi!=null && q.lo!=null && q.hi>q.lo)? (q.p-q.lo)/(q.hi-q.lo) : 0.5;
+  const vr = (q.v10 && q.v3m)? q.v10/q.v3m : 1;
+  const att = clamp(0.45*clamp(((q.ch52??0)+30)/2.3) + 0.35*pos*100 + 0.20*clamp(50+(vr-1)*100));
+  s.discovery = clamp(100 - Math.abs(att-42)*2.2);
+  s.quality = st.moat*20;
+  s.catalyst = st.catalyst*20;
+  // smart money: volume accumulation from the market scan + analyst EPS revisions (90 days)
+  const m = MK[st.sym], ec = EC[st.sym];
+  const rev = m && m.rev90!=null? m.rev90 : (ec && ec.rev90!=null? ec.rev90/100 : null);
+  const revS = rev==null? 50 : clamp(50 + rev*500);
+  // backtest (2024-26): volume accumulation alone did not predict returns, so revisions carry most of this factor
+  s.smart = m? 0.25*m.s.accumulation + 0.75*revS : revS;
+  let tw=0, tot=0; FACTORS.forEach(([k])=>{ tw+=W[k]||0; tot+=(W[k]||0)*s[k]; });
+  let total = tw? tot/tw : 0;
+  if(ec && ec.verdict==='fail') total = Math.min(total, 50);
+  else if(ec && ec.verdict==='caution') total -= 2;
+  const fund = (s.growth+s.value+s.quality+s.catalyst+s.theme)/5;
+  const liq = q.v3m!=null? q.v3m*q.p : null; // ล้านบาท/วัน
+  return {s, total, fund, att, g, peg, r200, pos, vr, liq, ec, rev};
+}
+function tier(x){
+  if(x.total>=70) return ['น่าสะสม','t-a'];
+  if(x.total>=62) return ['เฝ้าดูใกล้ชิด','t-b'];
+  if(x.total>=54) return ['รอจังหวะ','t-c'];
+  return ['ยังไม่ใช่ตอนนี้','t-d'];
+}
+function flags(x){
+  const f=[];
+  if(x.att>=75) f.push('ราคาสะท้อนไปมากแล้ว');
+  if(x.liq!=null && x.liq < (L.min_liquidity_mb||20)) f.push('สภาพคล่องต่ำ');
+  if(x.r200 < -0.08) f.push('ยังเป็นขาลง');
+  if(x.g!=null && x.g < 0) f.push('กำไรปีหน้าลดลง');
+  if(x.ec && x.ec.verdict==='fail') f.push('ข้อมูลกำไรบน Yahoo ผิด');
+  if(x.ec && x.ec.verdict==='caution') f.push('ประมาณการกำไรต้องระวัง');
+  return f;
+}
+let rows = [];
+function compute(){
+  rows = U.map(st=>{
+    const q = cur.quotes[st.sym]; const x = score(st,q);
+    const px = prev && prev.quotes[st.sym]? score(st, prev.quotes[st.sym]) : null;
+    return x? Object.assign({st, q, th: themeById[st.theme], delta: px? x.total-px.total : null}, x) : null;
+  }).filter(Boolean);
+}
+
+/* ---------- helpers ---------- */
+const fmt = (v,d=1)=> v==null||isNaN(v)? '–' : Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const pct = (v,d=0)=> v==null? '–' : (v>0?'+':'')+fmt(v*100,d)+'%';
+const esc = s=> String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const el = (h)=>{ const d=document.createElement('div'); d.innerHTML=h.trim(); return d.firstElementChild; };
+
+/* ---------- header ---------- */
+function renderHeader(){
+  document.getElementById('title').textContent = L.title || 'Thai Opportunity Radar';
+  document.getElementById('asof').textContent = `ข้อมูล ณ ${cur.date} · ${cur.source} · สร้างเมื่อ ${R.built.replace('T',' ')} · เทียบกับ ${prev? prev.date : '— (สัปดาห์แรก)'}`;
+  const set = cur.index && cur.index.SET;
+  const meta = document.getElementById('meta'); meta.innerHTML='';
+  const top = rows.filter(r=>r.total>=70).length;
+  const items = [];
+  if(set){ items.push([fmt(set.p,2),'SET Index']); items.push([`<span class="${set.p>set.ma200?'up':'down'}">${pct(set.p/set.ma200-1,1)}</span>`,'SET เทียบเส้น 200 วัน']); }
+  items.push([rows.length,'หุ้นที่สแกน']); items.push([top,'ระดับ "น่าสะสม"']);
+  items.forEach(([b,s])=> meta.appendChild(el(`<div class="stat"><b>${b}</b><span>${s}</span></div>`)));
+}
+
+/* ---------- page nav ---------- */
+(function(){ const n=document.getElementById('nav'); if(!n) return; const local=true;
+  n.innerHTML=(L.pages||[]).map(p=>`<a href="${esc(local?p.file:(p.url||p.file))}" class="chip" style="text-decoration:none;${p.id==='radar'?'background:var(--ink);color:var(--panel);border-color:var(--ink)':''}">${esc(p.label)}</a>`).join(''); })();
+
+/* ---------- layout bar ---------- */
+function renderLayoutBar(){
+  const bar = document.getElementById('layoutbar'); bar.innerHTML = '<span class="small muted">แสดงส่วน:</span>';
+  L.sections.forEach(sec=>{
+    const b = el(`<button class="chip" aria-pressed="${!hidden.includes(sec.id)}">${esc(sec.label)}</button>`);
+    b.onclick = ()=>{ hidden = hidden.includes(sec.id)? hidden.filter(x=>x!==sec.id) : hidden.concat(sec.id); store.set('hidden',hidden); renderAll(); };
+    bar.appendChild(b);
+  });
+  const reset = el('<button>คืนค่าเริ่มต้น</button>');
+  reset.onclick = ()=>{ ['weights','order','hidden','sort','dir'].forEach(k=>store.set(k,null)); W=Object.assign({},L.weights); order=L.sections.map(s=>s.id); hidden=L.sections.filter(s=>!s.visible).map(s=>s.id); sortKey='score'; sortDir=-1; renderAll(); };
+  bar.appendChild(reset);
+}
+function move(id,dir){ const i=order.indexOf(id), j=i+dir; if(j<0||j>=order.length) return; [order[i],order[j]]=[order[j],order[i]]; store.set('order',order); renderAll(); }
+function sectionShell(id, title, sub){
+  const s = el(`<section class="block" id="sec-${id}"><div class="sec-head"><div><h2>${title}</h2>${sub?`<div class="muted small">${sub}</div>`:''}</div><div class="sec-tools"><button aria-label="เลื่อนขึ้น" title="เลื่อนขึ้น">↑</button><button aria-label="เลื่อนลง" title="เลื่อนลง">↓</button></div></div></section>`);
+  const [u,d] = s.querySelectorAll('.sec-tools button'); u.onclick=()=>move(id,-1); d.onclick=()=>move(id,1);
+  return s;
+}
+
+/* ---------- picks ---------- */
+function topFactors(r){
+  return FACTORS.map(([k,l])=>[l,r.s[k]]).sort((a,b)=>b[1]-a[1]).slice(0,2).map(x=>x[0]).join(' + ');
+}
+function renderPicks(){
+  const s = sectionShell('picks','ตัวเด่นประจำสัปดาห์','เรียงตามคะแนนรวม ตัดตัวที่ "ราคาสะท้อนไปมากแล้ว" และสภาพคล่องต่ำมากออก เพื่อหาตัวที่ยังเห็นก่อนคนอื่นได้');
+  const N = R.notes || {};
+  if(N.summary || N.headline){
+    s.appendChild(el(`<div class="note"><div><span class="eyebrow">มุมมองสัปดาห์นี้</span><h3 style="margin-top:6px">${esc(N.headline||'')}</h3><p>${esc(N.summary||'')}</p></div>${(N.points||[]).length?`<div><span class="eyebrow">สิ่งที่ต้องจับตา</span><ul style="margin:6px 0 0;padding-left:18px">${N.points.map(p=>`<li>${esc(p)}</li>`).join('')}</ul></div>`:''}</div>`));
+  }
+  const list = rows.filter(r=>r.att<75 && !(r.liq!=null && r.liq<5)).sort((a,b)=>b.total-a.total).slice(0, L.picks_count||8);
+  const grid = el('<div class="picks"></div>');
+  list.forEach(r=>{
+    const [tl,tc] = tier(r), fl = flags(r);
+    const bars = FACTORS.map(([k])=>`<i style="height:${Math.max(3,r.s[k]*0.3)}px" title="${k} ${fmt(r.s[k],0)}"></i>`).join('');
+    const pnote = (N.picks||{})[r.st.sym];
+    grid.appendChild(el(`<article class="pick">
+      <div class="row"><div><div class="sym">${r.st.sym}</div><div class="small muted">${esc(r.th.name)}</div></div><div style="text-align:right"><div class="score">${fmt(r.total,0)}</div>${r.delta!=null?`<div class="small mono ${r.delta>=0?'up':'down'}">${r.delta>=0?'▲':'▼'} ${fmt(Math.abs(r.delta),1)}</div>`:''}</div></div>
+      <div class="flags"><span class="pill ${tc}">${tl}</span><span class="pill t-d">${T.stages[r.th.stage].th}</span></div>
+      <p><b>จุดแข็ง:</b> ${esc(r.st.strength)}</p>
+      <p><b>ตัวเร่ง:</b> ${esc(r.st.trigger)}</p>
+      ${pnote?`<p><b>มุมมอง:</b> ${esc(pnote)}</p>`:''}
+      <p class="small muted">ราคา ${fmt(r.q.p,2)} · Fwd P/E ${fmt(r.q.fpe,1)} · EPS ปีหน้า ${pct(r.g)} · ปันผล ${fmt(r.q.dy,1)}% · เด่นที่ ${topFactors(r)}</p>
+      <div class="bars" aria-hidden="true">${bars}</div>
+      <div class="bars-l"><span>ธีม</span><span>โต</span><span>คุ้ม</span><span>เทรนด์</span><span>เห็นก่อน</span><span>เงิน</span><span>Moat</span><span>เร่ง</span></div>
+      ${fl.length?`<div class="flags">${fl.map(f=>`<span class="flag">⚠ ${f}</span>`).join('')}</div>`:''}
+      <p class="small"><b>ความเสี่ยง:</b> ${esc(r.st.risk)}</p>
+    </article>`));
+  });
+  s.appendChild(grid);
+  return s;
+}
+
+/* ---------- hype cycle ---------- */
+function hypeY(x){ // classic hype curve shape, 0..1 -> 0..1 (1 = high)
+  const peak = Math.exp(-Math.pow((x-0.30)/0.085,2))*0.92;
+  const slope = 0.62/(1+Math.exp(-(x-0.68)/0.07));
+  return Math.min(1, peak + slope*0.95 + 0.06);
+}
+function renderHype(){
+  const s = sectionShell('hype','Hype Cycle ของธีม','ตำแหน่งของ "ราคาหุ้นในธีม" บนวงจรความคาดหวัง (ไม่ใช่ตัวเทคโนโลยี) จุดใหญ่ = แรงหนุนแรง สีเข้ม = คะแนนเฉลี่ยของหุ้นในธีมสูง คลิกจุดเพื่อกรองตาราง');
+  const w=900,h=360,pl=30,pr=20,pt=24,pb=56, iw=w-pl-pr, ih=h-pt-pb;
+  let path=''; for(let i=0;i<=200;i++){ const x=i/200; path += (i?'L':'M')+(pl+x*iw).toFixed(1)+','+(pt+(1-hypeY(x))*ih).toFixed(1); }
+  const byStage = {};
+  T.themes.forEach(t=>{ (byStage[t.stage]=byStage[t.stage]||[]).push(t); });
+  let dots='';
+  Object.entries(byStage).forEach(([stg,list])=>{
+    list.forEach((t,i)=>{
+      const x0 = T.stages[stg].x + (i-(list.length-1)/2)*0.035;
+      const cx = pl+x0*iw, cy = pt+(1-hypeY(x0))*ih;
+      const rs = rows.filter(r=>r.st.theme===t.id); const avg = rs.length? rs.reduce((a,r)=>a+r.total,0)/rs.length : 50;
+      const op = (0.35 + clamp((avg-45)/30,0,1)*0.65).toFixed(2);
+      const rad = 6 + t.tailwind*2;
+      const sel = themeFilter===t.id;
+      const below = i%2===1;
+      dots += `<g class="hdot" data-id="${t.id}" style="cursor:pointer" tabindex="0" role="button" aria-label="${esc(t.name)}">
+        <circle cx="${cx}" cy="${cy}" r="${rad}" fill="var(--accent)" fill-opacity="${op}" stroke="${sel?'var(--gold)':'var(--panel)'}" stroke-width="${sel?3:1.5}"></circle>
+        <text x="${cx}" y="${below? cy+rad+14 : cy-rad-6}" text-anchor="middle" font-size="11.5" font-weight="600">${esc(t.name.length>22? t.name.slice(0,21)+'…' : t.name)}</text>
+        <text x="${cx}" y="${below? cy+rad+27 : cy-rad-19}" text-anchor="middle" class="lbl">เฉลี่ย ${fmt(avg,0)}</text></g>`;
+    });
+  });
+  let ticks=''; Object.entries(T.stages).forEach(([k,v])=>{ const x=pl+v.x*iw; ticks+=`<line x1="${x}" x2="${x}" y1="${pt+ih}" y2="${pt+ih+6}" class="axis" stroke-width="1"></line><text x="${x}" y="${h-28}" text-anchor="middle" class="lbl" font-weight="600">${v.th}</text><text x="${x}" y="${h-14}" text-anchor="middle" class="lbl">${v.label.replace('Plateau of Productivity','Plateau').replace('Peak of Inflated Expectations','Peak').replace('Trough of Disillusionment','Trough').replace('Slope of Enlightenment','Slope')}</text>`; });
+  const zone = `<rect x="${pl+0.14*iw}" y="${pt}" width="${0.12*iw}" height="${ih}" fill="var(--zone)"></rect><rect x="${pl+0.62*iw}" y="${pt}" width="${0.18*iw}" height="${ih}" fill="var(--zone)"></rect><text x="${pl+0.20*iw}" y="${pt+12}" text-anchor="middle" class="lbl">โซนเห็นก่อน ①</text><text x="${pl+0.71*iw}" y="${pt+12}" text-anchor="middle" class="lbl">โซน rerate ②</text>`;
+  const svg = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Hype cycle">${zone}<line x1="${pl}" x2="${w-pr}" y1="${pt+ih}" y2="${pt+ih}" class="axis" stroke-width="1"></line><path d="${path}" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 4"></path>${ticks}${dots}</svg>`;
+  const p = el(`<div class="panel"><div class="chart">${svg}</div><div class="small muted">① ธีมที่กำลังขึ้นสู่ยอด: ข่าวเริ่มออก ตัวเลขเริ่มมา คนยังไม่แห่ ② ทางลาด: กำไรพิสูจน์แล้ว นักลงทุนสถาบันกลับมา ส่วนยอดเขา = ระวัง และหุบเหว = สวนกระแสเมื่อเห็นสัญญาณกลับตัว${themeFilter?` · <button id="clearTheme">ล้างตัวกรองธีม</button>`:''}</div></div>`);
+  p.querySelectorAll('.hdot').forEach(g=>{ const f=()=>{ themeFilter = themeFilter===g.dataset.id? null : g.dataset.id; renderAll(); document.getElementById('sec-table')?.scrollIntoView({behavior:'smooth'}); }; g.onclick=f; g.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();f();} }; });
+  const c = p.querySelector('#clearTheme'); if(c) c.onclick=()=>{ themeFilter=null; renderAll(); };
+  s.appendChild(p); return s;
+}
+
+/* ---------- discovery map ---------- */
+function renderMap(){
+  const s = sectionShell('map','แผนที่ "เห็นก่อนคนอื่น"','แกนนอน = ตลาดเห็นแล้วแค่ไหน (ผลตอบแทน 1 ปี, ตำแหน่งในกรอบ 52 สัปดาห์, ปริมาณซื้อขายที่เร่งขึ้น) · แกนตั้ง = พื้นฐาน (ธีม, การเติบโต, ความคุ้มค่า, Moat, ตัวเร่ง) · ขนาด = มูลค่าตลาด');
+  const w=900,h=440,pl=48,pr=24,pt=20,pb=44,iw=w-pl-pr,ih=h-pt-pb;
+  const xs = v=>pl+v/100*iw, ys = v=>pt+(1-(v-20)/70)*ih;
+  const vis = rows.filter(r=>!themeFilter || r.st.theme===themeFilter);
+  let g = `<rect x="${xs(20)}" y="${ys(90)}" width="${xs(58)-xs(20)}" height="${ys(62)-ys(90)}" fill="var(--zone)" rx="6"></rect><text x="${xs(39)}" y="${ys(90)+16}" text-anchor="middle" class="lbl" font-weight="600">โซนเป้าหมาย: พื้นฐานดี แต่ตลาดยังไม่แห่</text>`;
+  [20,40,60,80,100].forEach(v=>{ g+=`<line x1="${xs(v)}" x2="${xs(v)}" y1="${pt}" y2="${pt+ih}" class="axis" stroke-width="1" stroke-dasharray="2 4"></line><text x="${xs(v)}" y="${pt+ih+16}" text-anchor="middle" class="lbl">${v}</text>`; });
+  [30,50,70,90].forEach(v=>{ g+=`<line x1="${pl}" x2="${w-pr}" y1="${ys(v)}" y2="${ys(v)}" class="axis" stroke-width="1" stroke-dasharray="2 4"></line><text x="${pl-8}" y="${ys(v)+4}" text-anchor="end" class="lbl">${v}</text>`; });
+  g += `<text x="${pl+iw/2}" y="${h-6}" text-anchor="middle" class="lbl">ยังไม่มีใครสนใจ ← ระดับความสนใจของตลาด → แห่กันเข้าแล้ว</text>`;
+  const pts = vis.map(r=>({r, x:xs(clamp(r.att)), y:ys(clamp(r.fund,20,90)), rad: 4+Math.sqrt(Math.max(r.q.mcap||1,1))/3.2}));
+  pts.sort((a,b)=>b.rad-a.rad).forEach(p=>{
+    const col = p.r.total>=70?'var(--accent)': p.r.total>=62?'var(--info)': p.r.total>=54?'var(--gold)':'var(--muted)';
+    g += `<g><title>${p.r.st.sym} · คะแนน ${fmt(p.r.total,0)} · ความสนใจ ${fmt(p.r.att,0)} · พื้นฐาน ${fmt(p.r.fund,0)}</title><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${Math.min(p.rad,22).toFixed(1)}" fill="${col}" fill-opacity=".55" stroke="${col}" stroke-width="1"></circle><text x="${p.x.toFixed(1)}" y="${(p.y-Math.min(p.rad,22)-3).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="600">${p.r.st.sym}</text></g>`;
+  });
+  const legend = [['var(--accent)','น่าสะสม ≥70'],['var(--info)','เฝ้าดู 62-70'],['var(--gold)','รอจังหวะ 54-62'],['var(--muted)','<54']].map(([c,l])=>`<span class="small" style="display:inline-flex;gap:6px;align-items:center"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="${c}"></circle></svg>${l}</span>`).join('');
+  s.appendChild(el(`<div class="panel"><div class="chart"><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Discovery map">${g}</svg></div><div style="display:flex;flex-wrap:wrap;gap:14px">${legend}${themeFilter?`<span class="small muted">กรองธีม: ${esc(themeById[themeFilter].name)}</span>`:''}</div></div>`));
+  return s;
+}
+
+/* ---------- table ---------- */
+const COLS = [
+  ['sym','หุ้น',r=>r.st.sym,false],['theme','ธีม',r=>r.th.name,false],['score','คะแนน',r=>r.total,true],['delta','Δ สัปดาห์',r=>r.delta??-999,true],
+  ['tier','ระดับ',r=>r.total,false],['p','ราคา',r=>r.q.p,true],['mcap','Mcap (พันล.)',r=>r.q.mcap,true],['g','EPS ปีหน้า',r=>r.g??-9,true],['fpe','Fwd P/E',r=>r.q.fpe??999,true],
+  ['peg','PEG',r=>r.peg??999,true],['dy','ปันผล %',r=>r.q.dy??0,true],['r200','vs 200 วัน',r=>r.r200,true],['ch52','1 ปี',r=>r.q.ch52??0,true],['att','ความสนใจ',r=>r.att,true],['liq','มูลค่าซื้อขาย (ล.บ./วัน)',r=>r.liq??0,true]];
+function renderTable(){
+  const s = sectionShell('table','ตารางคัดหุ้นทั้งหมด','คลิกหัวคอลัมน์เพื่อเรียง คลิกแถวเพื่อดูรายละเอียด ปรับน้ำหนักคะแนนได้ด้านล่าง');
+  const tools = el(`<div class="toolbar"><input type="search" id="q" placeholder="ค้นหาหุ้น" value="${esc(query)}"><select id="tf" aria-label="กรองธีม"><option value="">ทุกธีม</option>${T.themes.map(t=>`<option value="${t.id}" ${themeFilter===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select></div>`);
+  s.appendChild(tools);
+  // weights
+  const wbox = el('<details class="weights-d"><summary>ปรับน้ำหนักคะแนน (ผลเปลี่ยนทันทีทุกส่วน)</summary><div class="weights" style="margin-top:10px"></div></details>');
+  if(store.get('wopen',false)) wbox.open = true;
+  wbox.addEventListener('toggle',()=>store.set('wopen',wbox.open));
+  const wg = wbox.querySelector('.weights');
+  FACTORS.forEach(([k,l])=>{
+    const lab = el(`<label for="w-${k}"><span>${l}<b class="mono">${W[k]}</b></span><input type="range" id="w-${k}" min="0" max="40" step="1" value="${W[k]}"></label>`);
+    const inp = lab.querySelector('input'), b = lab.querySelector('b');
+    inp.oninput = ()=>{ b.textContent = inp.value; };
+    inp.onchange = ()=>{ W[k] = +inp.value; store.set('weights', W); renderAll(); };
+    wg.appendChild(lab);
+  });
+  s.appendChild(wbox);
+  const vis = rows.filter(r=>(!themeFilter || r.st.theme===themeFilter) && (!query || (r.st.sym+' '+r.st.name).toLowerCase().includes(query.toLowerCase())));
+  const col = COLS.find(c=>c[0]===sortKey) || COLS[2];
+  vis.sort((a,b)=>{ const x=col[2](a), y=col[2](b); return (x>y?1:x<y?-1:0)*sortDir; });
+  const thead = COLS.map(c=>`<th data-k="${c[0]}" class="${c[3]?'n':''}" ${c[0]===sortKey?`aria-sort="${sortDir>0?'ascending':'descending'}"`:''} scope="col">${c[1]}${c[0]===sortKey?(sortDir>0?' ▲':' ▼'):''}</th>`).join('');
+  const body = vis.map(r=>{
+    const [tl,tc]=tier(r);
+    const main = `<tr class="row" data-s="${r.st.sym}" tabindex="0">
+      <td><b>${r.st.sym}</b></td><td class="small">${esc(r.th.name)}</td>
+      <td class="n"><b>${fmt(r.total,0)}</b><span class="meter"><i style="width:${r.total}%"></i></span></td>
+      <td class="n ${r.delta>0?'up':r.delta<0?'down':''}">${r.delta==null?'–':(r.delta>0?'+':'')+fmt(r.delta,1)}</td>
+      <td><span class="pill ${tc}">${tl}</span></td>
+      <td class="n">${fmt(r.q.p,2)}</td><td class="n">${fmt(r.q.mcap,1)}</td>
+      <td class="n ${r.g>0?'up':r.g<0?'down':''}">${pct(r.g)}</td><td class="n">${fmt(r.q.fpe,1)}</td><td class="n">${r.peg==null?'–':fmt(r.peg,2)}</td>
+      <td class="n">${fmt(r.q.dy,1)}</td><td class="n ${r.r200>0?'up':'down'}">${pct(r.r200)}</td><td class="n ${r.q.ch52>0?'up':'down'}">${r.q.ch52==null?'–':(r.q.ch52>0?'+':'')+fmt(r.q.ch52,0)+'%'}</td>
+      <td class="n">${fmt(r.att,0)}</td><td class="n">${fmt(r.liq,0)}</td></tr>`;
+    const det = openRow===r.st.sym? `<tr class="detail"><td colspan="${COLS.length}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;max-width:1100px">
+        <div><b>${esc(r.st.name)}</b><br>จุดแข็ง: ${esc(r.st.strength)}<br>ตัวเร่ง: ${esc(r.st.trigger)}<br>ความเสี่ยง: ${esc(r.st.risk)}</div>
+        <div class="mono small">${FACTORS.map(([k,l])=>`${l}: ${fmt(r.s[k],0)}`).join('<br>')}</div>
+        <div class="small">P/E ย้อนหลัง ${fmt(r.q.tpe,1)} · P/BV ${fmt(r.q.pb,2)}<br>EPS ปีนี้ ${fmt(r.q.epsCY,2)} → ปีหน้า ${fmt(r.q.epsF,2)}<br>กรอบ 52 สัปดาห์ ${fmt(r.q.lo,2)} – ${fmt(r.q.hi,2)} (อยู่ที่ ${fmt(r.pos*100,0)}%)<br>วอลุ่ม 10 วัน/3 เดือน ${fmt(r.vr,2)} เท่า · นักวิเคราะห์ ${r.q.rating?fmt(r.q.rating,1)+' (1 = ซื้อแรง)':'–'}<br>${flags(r).map(f=>'⚠ '+f).join(' · ')}</div>
+      </div></td></tr>` : '';
+    return main+det;
+  }).join('');
+  const wrap = el(`<div class="tbl-wrap"><table><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>`);
+  wrap.querySelectorAll('th').forEach(th=>th.onclick=()=>{ const k=th.dataset.k; if(sortKey===k) sortDir=-sortDir; else { sortKey=k; sortDir=-1; } store.set('sort',sortKey); store.set('dir',sortDir); renderAll(); });
+  wrap.querySelectorAll('tr.row').forEach(tr=>{ const f=()=>{ openRow = openRow===tr.dataset.s? null : tr.dataset.s; renderAll(); }; tr.onclick=f; tr.onkeydown=e=>{ if(e.key==='Enter'){ f(); } }; });
+  s.appendChild(wrap);
+  s.appendChild(el(`<div class="small muted">แสดง ${vis.length} จาก ${rows.length} ตัว · มูลค่าซื้อขายเฉลี่ย 3 เดือน (ล้านบาท/วัน) ต่ำกว่า ${L.min_liquidity_mb||20} ถือว่าสภาพคล่องต่ำ</div>`));
+  const qi = tools.querySelector('#q'); qi.oninput = ()=>{ query = qi.value; const pos=qi.selectionStart; renderAll(); const n=document.getElementById('q'); n.focus(); n.setSelectionRange(pos,pos); };
+  tools.querySelector('#tf').onchange = e=>{ themeFilter = e.target.value || null; renderAll(); };
+  return s;
+}
+
+/* ---------- themes ---------- */
+function renderThemes(){
+  const s = sectionShell('themes','ธีม 3 ปี','แก้ไขได้ที่ config/themes.json');
+  const g = el('<div class="themes"></div>');
+  T.themes.slice().sort((a,b)=>T.stages[b.stage].score+b.tailwind*6-(T.stages[a.stage].score+a.tailwind*6)).forEach(t=>{
+    const rs = rows.filter(r=>r.st.theme===t.id).sort((a,b)=>b.total-a.total);
+    g.appendChild(el(`<article class="theme"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><h3>${esc(t.name)}</h3><span class="mono small" title="แรงหนุน">${'●'.repeat(t.tailwind)}${'○'.repeat(5-t.tailwind)}</span></div>
+      <div class="flags"><span class="pill t-a">${T.stages[t.stage].th}</span><span class="pill t-d">${esc(t.horizon)}</span></div>
+      <dl style="margin:0"><dt>ทำไมน่าสนใจ</dt><dd>${esc(t.why)}</dd><dt>จุดที่ควรดู</dt><dd>${esc(t.watch)}</dd><dt>ความเสี่ยง</dt><dd>${esc(t.risk)}</dd><dt>หุ้นในธีม (คะแนน)</dt><dd class="mono small">${rs.map(r=>`${r.st.sym} ${fmt(r.total,0)}`).join(' · ')}</dd></dl>
+      <p class="small muted">${esc(T.stages[t.stage].hint)}</p></article>`));
+  });
+  s.appendChild(g); return s;
+}
+
+/* ---------- method ---------- */
+function renderMethod(){
+  const s = sectionShell('method','วิธีคิดคะแนน','');
+  s.appendChild(el(`<div class="method"><ul>
+    <li><b>ธีม/Hype</b>: คะแนนของขั้นบน Hype Cycle (ขึ้นสู่ยอด 92, ทางลาด 86, จุดประกาย 72, หุบเหว 58, ที่ราบ 55, ยอดเขา 40) × 0.7 + แรงหนุน (1-5) × 6</li>
+    <li><b>การเติบโต</b>: EPS คาดการณ์ปีหน้าเทียบปีนี้ โต 0% = 40, 10% = 70, 20%+ = 100</li>
+    <li><b>ความคุ้มค่า</b>: PEG (Forward P/E ÷ %โต) ยิ่งต่ำยิ่งดี (PEG 1 = 75) บวกเพิ่มถ้า P/BV &lt; 1 หรือปันผล ≥ 5%</li>
+    <li><b>แนวโน้มราคา</b>: ราคาเทียบเส้น 200 วัน ดีที่สุดเมื่อเหนือเส้น 10-25% (เริ่มเป็นขาขึ้นแต่ยังไม่ร้อนเกิน) และเส้น 50 วันอยู่เหนือ 200 วัน</li>
+    <li><b>ยังเห็นก่อนได้</b>: จากดัชนี "ความสนใจของตลาด" (ผลตอบแทน 1 ปี 45%, ตำแหน่งในกรอบ 52 สัปดาห์ 35%, วอลุ่มที่เร่งขึ้น 20%) คะแนนสูงสุดเมื่อความสนใจอยู่ราว 42 คือคนเริ่มเห็น แต่ยังไม่แห่</li>
+    <li><b>เงินฉลาด</b>: 75% จากการปรับประมาณการ EPS ปีหน้าของนักวิเคราะห์ใน 90 วัน และ 25% จากแรงซื้อสะสม (สัดส่วนวอลุ่มวันที่ราคาขึ้นและแนวโน้ม OBV 50 วัน) ที่ลดน้ำหนักลงเพราะผลทดสอบย้อนหลังไม่ยืนยัน</li>
+    <li><b>สแกนทั้งตลาด</b>: ใช้ 6 ปัจจัยเชิงปริมาณ (การเติบโต 20, ความคุ้มค่า 18, แนวโน้ม 24, เห็นก่อน 14, แรงสะสม 6, ปรับประมาณการ 18 ปรับตามผลทดสอบย้อนหลังที่พบว่าแนวโน้มราคาใช้ได้ดีที่สุด) เพราะยังไม่มีคะแนนธีม/moat สำหรับหุ้นนอกรายการติดตาม</li>
+    <li><b>คุณภาพ/Moat</b> และ <b>ตัวเร่ง 12 เดือน</b>: ให้คะแนน 1-5 โดยผู้วิเคราะห์ใน config/universe.json</li>
+    <li>ระดับ: ≥70 น่าสะสม · 62-70 เฝ้าดูใกล้ชิด · 54-62 รอจังหวะ · &lt;54 ยังไม่ใช่ตอนนี้</li>
+    <li>ข้อจำกัด: ประมาณการ EPS มาจากค่าเฉลี่ยนักวิเคราะห์บน Yahoo ซึ่งอาจล้าหลังหรือมีรายการพิเศษ หุ้นเล็กมีข้อมูลน้อย ควรตรวจงบจริงก่อนตัดสินใจ</li>
+  </ul></div>`));
+  return s;
+}
+
+/* ---------- whole-market scan ---------- */
+function waiting(s, what){
+  s.appendChild(el(`<div class="panel"><p style="margin:0">ยังไม่มี${what} ข้อมูลส่วนนี้มาจากการรัน <code>scripts/market_scan.py</code> บนเครื่องที่ต่ออินเทอร์เน็ตได้ (รันอัตโนมัติทุกวันศุกร์ 17:45 หรือดับเบิลคลิก <code>update_weekly.bat</code>)</p></div>`));
+  return s;
+}
+let scanNewOnly = store.get('scanNew', true), scanMkt = '', scanSector = '', scanOpen = null;
+function renderScan(){
+  const M = R.market;
+  const s = sectionShell('scan','สแกนทั้งตลาด', M? `หุ้น SET + mai ทั้งหมด ${M.count_all} ตัว ผ่านเกณฑ์สภาพคล่อง ≥ ${M.min_turnover_mb} ล้านบาท/วัน ${M.count_liquid} ตัว · ข้อมูล ณ ${M.date} · คะแนนเชิงปริมาณ 6 ปัจจัย (ไม่มีคะแนนธีม/moat)` : '');
+  if(!M) return waiting(s,'ผลสแกนทั้งตลาด');
+  const sectors = [...new Set(M.rows.map(r=>r.sector).filter(Boolean))].sort();
+  const tools = el(`<div class="toolbar"><button class="chip" id="sc-new" aria-pressed="${scanNewOnly}">เฉพาะตัวที่ยังไม่อยู่ในรายการติดตาม</button>
+    <select id="sc-m" aria-label="ตลาด"><option value="">SET + mai</option><option ${scanMkt==='SET'?'selected':''}>SET</option><option ${scanMkt==='mai'?'selected':''}>mai</option></select>
+    <select id="sc-s" aria-label="หมวด"><option value="">ทุกหมวด</option>${sectors.map(x=>`<option ${scanSector===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div>`);
+  tools.querySelector('#sc-new').onclick=()=>{ scanNewOnly=!scanNewOnly; store.set('scanNew',scanNewOnly); renderAll(); };
+  tools.querySelector('#sc-m').onchange=e=>{ scanMkt=e.target.value; renderAll(); };
+  tools.querySelector('#sc-s').onchange=e=>{ scanSector=e.target.value; renderAll(); };
+  s.appendChild(tools);
+  // sector heat: where the strongest quant scores cluster
+  const bySec = {}; M.rows.forEach(r=>{ if(!r.sector) return; (bySec[r.sector]=bySec[r.sector]||[]).push(r.total); });
+  const heat = Object.entries(bySec).filter(([,v])=>v.length>=3).map(([k,v])=>[k, v.reduce((a,b)=>a+b,0)/v.length, v.length]).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const vis = M.rows.filter(r=>(!scanNewOnly || !r.curated) && (!scanMkt || String(r.market||'').toLowerCase()===scanMkt.toLowerCase()) && (!scanSector || r.sector===scanSector)).slice(0, L.scan_rows||40);
+  const body = vis.map(r=>{
+    const main = `<tr class="row" data-s="${r.sym}" tabindex="0"><td><b>${r.sym}</b>${r.curated?' <span class="pill t-d">ติดตามอยู่</span>':' <span class="pill t-a">ใหม่</span>'}</td><td class="small" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${esc(r.name||'')}</td><td class="small">${esc(r.market||'')}</td><td class="small">${esc(r.sector||'')}</td>
+      <td class="n"><b>${fmt(r.total,0)}</b><span class="meter"><i style="width:${r.total}%"></i></span></td><td class="n ${r.g>0?'up':r.g<0?'down':''}">${pct(r.g)}</td><td class="n">${fmt(r.fpe,1)}</td><td class="n">${fmt(r.dy,1)}</td>
+      <td class="n ${r.ret12>0?'up':'down'}">${r.ret12>0?'+':''}${fmt(r.ret12,0)}%</td><td class="n ${r.r200>0?'up':'down'}">${pct(r.r200)}</td><td class="n">${fmt(r.att,0)}</td><td class="n">${fmt(r.s.accumulation,0)}</td><td class="n">${r.rev90==null?'–':pct(r.rev90,1)}</td><td class="n">${fmt(r.turn,0)}</td></tr>`;
+    const det = scanOpen===r.sym? `<tr class="detail"><td colspan="14"><div class="mono small">${Object.entries(r.s).map(([k,v])=>`${k}: ${fmt(v,0)}`).join(' · ')}</div><div class="small">P/BV ${fmt(r.pb,2)} · ROE ${fmt(r.roe,1)}% · D/E ${fmt(r.de,0)} · สถาบันถือ ${fmt(r.inst,1)}% · ผู้บริหารถือ ${fmt(r.insiders,1)}% · นักวิเคราะห์ ${r.analysts||0} ราย ${r.rating?'(เฉลี่ย '+fmt(r.rating,1)+')':''} · วอลุ่ม 10 วัน/3 เดือน ${fmt(r.vr,2)} เท่า</div><div class="small muted">ถ้าน่าสนใจ ให้เพิ่มใน config/universe.json พร้อมธีม moat และตัวเร่ง เพื่อให้ได้คะแนนเต็มรูปแบบ</div></td></tr>` : '';
+    return main+det;
+  }).join('');
+  const wrap = el(`<div class="duo"><div class="tbl-wrap" style="grid-column:1/-1"><table><thead><tr><th>หุ้น</th><th>ชื่อ</th><th>ตลาด</th><th>หมวด</th><th class="n">คะแนน</th><th class="n">EPS ปีหน้า</th><th class="n">Fwd P/E</th><th class="n">ปันผล %</th><th class="n">1 ปี</th><th class="n">vs 200 วัน</th><th class="n">ความสนใจ</th><th class="n">สะสม</th><th class="n">ปรับประมาณการ 90 วัน</th><th class="n">ล.บ./วัน</th></tr></thead><tbody>${body||'<tr><td colspan="14">ไม่มีหุ้นตามตัวกรอง</td></tr>'}</tbody></table></div></div>`);
+  wrap.querySelectorAll('tr.row').forEach(tr=>{ const f=()=>{ scanOpen = scanOpen===tr.dataset.s? null : tr.dataset.s; renderAll(); }; tr.onclick=f; tr.onkeydown=e=>{ if(e.key==='Enter') f(); }; });
+  s.appendChild(wrap);
+  if(heat.length){
+    const mx = Math.max(...heat.map(h=>h[1]));
+    s.appendChild(el(`<div class="panel"><h3>หมวดที่คะแนนเฉลี่ยสูงสุด (เงินกำลังหมุนเข้า)</h3>${heat.map(([k,v,n])=>`<div style="display:grid;grid-template-columns:minmax(0,180px) 1fr 70px;gap:10px;align-items:center;font-size:13px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k)}</span><span style="background:var(--line);border-radius:3px;height:10px"><i style="display:block;height:100%;width:${(v/mx*100).toFixed(0)}%;background:var(--accent);border-radius:3px"></i></span><span class="mono">${fmt(v,0)} (${n})</span></div>`).join('')}</div>`));
+  }
+  return s;
+}
+
+/* ---------- smart money ---------- */
+function miniList(title, sub, items, fmtRow){
+  return `<div class="panel"><div><h3>${title}</h3><div class="small muted">${sub}</div></div>${items.length? `<div style="overflow-x:auto;min-width:0"><table><tbody>${items.map(fmtRow).join('')}</tbody></table></div>` : '<p class="small muted" style="margin:0">ยังไม่พบรายการ</p>'}</div>`;
+}
+function renderSmart(){
+  const M = R.market;
+  const s = sectionShell('smart','สัญญาณเงินฉลาด','สัญญาณที่มักมาก่อนราคา 3-6 เดือน: แรงซื้อสะสมเงียบๆ นักวิเคราะห์ปรับประมาณการขึ้น และผู้บริหารซื้อหุ้นตัวเอง');
+  if(!M) return waiting(s,'สัญญาณเงินฉลาด');
+  const acc = M.rows.filter(r=>r.vr>=1.1 && r.r200>-0.05 && r.att<70).sort((a,b)=>b.s.accumulation-a.s.accumulation).slice(0,12);
+  const rev = M.rows.filter(r=>r.rev90!=null && r.rev90>=0.03 && (r.analysts||0)>=3).sort((a,b)=>b.rev90-a.rev90).slice(0,12);
+  const ins = ((R.insider||{}).rows||[]).slice(0,15);
+  const star = r=> r.curated? ' <span class="small muted">★</span>' : '';
+  const g = el(`<div class="duo">
+    ${miniList('แรงซื้อสะสม + วอลุ่มเร่ง','วอลุ่มวันที่ราคาขึ้นมากกว่าวันลง วอลุ่ม 10 วันสูงกว่าค่าเฉลี่ย 3 เดือน ราคายังไม่ร้อนเกิน', acc, r=>`<tr><td><b>${r.sym}</b>${star(r)}</td><td class="small">${esc(r.sector||'')}</td><td class="n mono">สะสม ${fmt(r.s.accumulation,0)}</td><td class="n mono">วอลุ่ม ×${fmt(r.vr,1)}</td></tr>`)}
+    ${miniList('นักวิเคราะห์ปรับประมาณการขึ้น','EPS ปีหน้าเทียบ 90 วันก่อน (มีนักวิเคราะห์ ≥ 3 ราย)', rev, r=>`<tr><td><b>${r.sym}</b>${star(r)}</td><td class="small">${esc(r.sector||'')}</td><td class="n mono up">${pct(r.rev90,1)}</td><td class="n mono">${r.analysts} ราย</td></tr>`)}
+  </div>`);
+  s.appendChild(g);
+  const keys = ins.length? Object.keys(ins[0]).slice(0,7) : [];
+  s.appendChild(el(`<div class="panel"><h3>ผู้บริหารซื้อขายหุ้น (แบบ 59 ก.ล.ต.)</h3>${ins.length? `<div class="tbl-wrap"><table><thead><tr>${keys.map(k=>`<th>${esc(k)}</th>`).join('')}</tr></thead><tbody>${ins.map(r=>`<tr>${keys.map(k=>`<td class="small">${esc(r[k])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : '<p class="small muted" style="margin:0">ยังดึงรายงานแบบ 59 อัตโนมัติไม่ได้ ดูเองได้ที่เว็บ ก.ล.ต. (market.sec.or.th) หัวข้อรายงานการเปลี่ยนแปลงการถือหลักทรัพย์ของผู้บริหาร</p>'}<p class="small muted" style="margin:0">★ = หุ้นที่อยู่ในรายการติดตามแล้ว</p></div>`));
+  return s;
+}
+
+/* ---------- earnings check ---------- */
+function renderEarnings(){
+  const E = R.earnings;
+  const s = sectionShell('earnings','ตรวจกำไรจริงเทียบประมาณการ', E? `ตรวจเมื่อ ${E.checked} · ใช้ปรับคะแนน: "ข้อมูลผิด" ถูกจำกัดคะแนนไม่เกิน 50 และ "ระวัง" ถูกหัก 2 คะแนน` : '');
+  if(!E) return waiting(s,'ผลตรวจกำไร');
+  const V = {ok:['น่าเชื่อ','t-a'], caution:['ระวัง','t-c'], fail:['ข้อมูลผิด','t-d']};
+  s.appendChild(el(`<div class="tbl-wrap"><table><thead><tr><th>หุ้น</th><th>ผล</th><th class="n">ชนะประมาณการ</th><th>งวดล่าสุด</th><th class="n">EPS ปีนี้</th><th class="n">EPS ปีหน้า</th><th class="n">ปรับ 90 วัน</th><th class="n">นักวิเคราะห์</th><th>งบถัดไป</th><th>ข้อสังเกต</th></tr></thead><tbody>
+    ${E.rows.map(r=>`<tr><td><b>${r.sym}</b></td><td><span class="pill ${V[r.verdict][1]}">${V[r.verdict][0]}</span></td><td class="n">${esc(r.beats)}</td><td class="small">${esc(r.last)}</td><td class="n">${r.fy0==null?'–':(r.fy0>0?'+':'')+fmt(r.fy0,1)+'%'}</td><td class="n">${r.fy1==null?'–':(r.fy1>0?'+':'')+fmt(r.fy1,1)+'%'}</td><td class="n ${r.rev90>0?'up':r.rev90<0?'down':''}">${r.rev90==null?'–':(r.rev90>0?'+':'')+fmt(r.rev90,1)+'%'}</td><td class="n">${r.analysts}</td><td class="small">${esc(r.next)}</td><td class="small" style="white-space:normal;min-width:320px">${esc(r.note)}</td></tr>`).join('')}
+  </tbody></table></div>`));
+  return s;
+}
+
+/* ---------- backtest ---------- */
+function renderBacktest(){
+  const B = R.backtest;
+  const s = sectionShell('backtest','ผลทดสอบย้อนหลัง', B? `${esc(B.method)} · ${B.months} เดือน` : '');
+  if(!B) return waiting(s,'ผลทดสอบย้อนหลัง');
+  const C = B.curve, n = C.dates.length;
+  const w=900,h=300,pl=48,pr=90,pt=16,pb=30,iw=w-pl-pr,ih=h-pt-pb;
+  const all = [...C.top20,...C.universe,...C.set];
+  const lo = Math.min(...all, 1)*0.97, hi = Math.max(...all, 1)*1.03;
+  const xs = i=>pl+(n>1? i/(n-1):0)*iw, ys = v=>pt+(1-(v-lo)/(hi-lo))*ih;
+  const line = (arr,col,wd)=>`<path d="${arr.map((v,i)=>(i?'L':'M')+xs(i).toFixed(1)+','+ys(v).toFixed(1)).join('')}" fill="none" stroke="${col}" stroke-width="${wd}"></path><circle cx="${xs(arr.length-1)}" cy="${ys(arr[arr.length-1])}" r="3.5" fill="${col}"></circle>`;
+  const lab = (arr,col,t)=>`<text x="${xs(arr.length-1)+8}" y="${ys(arr[arr.length-1])+4}" font-size="11.5" font-weight="600" fill="${col}">${t} ${arr[arr.length-1]>=1?'+':''}${fmt((arr[arr.length-1]-1)*100,0)}%</text>`;
+  let grid=''; for(let k=0;k<=4;k++){ const v=lo+(hi-lo)*k/4; grid+=`<line x1="${pl}" x2="${pl+iw}" y1="${ys(v)}" y2="${ys(v)}" class="axis" stroke-dasharray="2 4"></line><text x="${pl-6}" y="${ys(v)+4}" text-anchor="end" class="lbl">${fmt((v-1)*100,0)}%</text>`; }
+  const step = Math.max(1, Math.round(n/6)); let xt=''; for(let i=0;i<n;i+=step) xt+=`<text x="${xs(i)}" y="${h-8}" text-anchor="middle" class="lbl">${C.dates[i].slice(0,7)}</text>`;
+  const svg = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="ผลตอบแทนสะสม">${grid}${xt}${line(C.set,'var(--muted)',1.5)}${line(C.universe,'var(--gold)',1.5)}${line(C.top20,'var(--accent)',2.5)}${lab(C.top20,'var(--accent)','Top 20')}${lab(C.universe,'var(--gold)','ทุกตัว')}${lab(C.set,'var(--muted)',B.benchmark||'SET')}</svg>`;
+  // quintile bars at 6m
+  const F = [['combo','คะแนนรวม'],['momentum','แนวโน้ม'],['discovery','เห็นก่อน'],['accumulation','สะสม']];
+  const hz = B.quintiles.combo['6m'] && B.quintiles.combo['6m'].some(v=>v!=null)? '6m' : '3m';
+  const qv = F.flatMap(([f])=>B.quintiles[f][hz]||[]).filter(v=>v!=null);
+  const qmax = Math.max(1,...qv.map(Math.abs));
+  const qhtml = F.map(([f,l])=>{ const arr=B.quintiles[f][hz]||[]; return `<div><div class="small" style="font-weight:600">${l}</div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;align-items:end;height:90px;border-bottom:1px solid var(--line)">${arr.map((v,i)=>`<div title="กลุ่ม ${i+1}: ${v==null?'–':fmt(v,1)+'%'}" style="display:flex;flex-direction:column;justify-content:flex-end;height:100%"><span class="mono" style="font-size:10px;text-align:center">${v==null?'':fmt(v,1)}</span><i style="display:block;height:${v==null?0:Math.max(2,Math.abs(v)/qmax*70)}px;background:${v>=0?'var(--accent)':'var(--bad)'};border-radius:2px 2px 0 0;opacity:${0.4+i*0.15}"></i></div>`).join('')}</div><div class="small muted" style="display:flex;justify-content:space-between"><span>คะแนนต่ำ</span><span>สูง</span></div></div>`; }).join('');
+  const hr = B.hit_rate||{};
+  s.appendChild(el(`<div class="duo"><div class="panel"><h3>พอร์ต Top 20 (ปรับทุกเดือน) เทียบหุ้นทุกตัวและ ${B.benchmark==='TDEX'?'SET50 (TDEX)':'SET'}</h3><div class="chart">${svg}</div></div>
+    <div class="panel"><h3>ผลตอบแทนเฉลี่ย ${hz==='6m'?'6':'3'} เดือนข้างหน้า แบ่ง 5 กลุ่มตามคะแนน</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px">${qhtml}</div>
+    <p class="small" style="margin:0">ถ้าแท่งไล่ขึ้นจากซ้ายไปขวา แปลว่าปัจจัยนั้นใช้ได้จริง · โอกาสที่ Top 20 ชนะค่ากลางตลาด: 3 เดือน ${fmt(hr['3m'],0)}% · 6 เดือน ${fmt(hr['6m'],0)}% · 12 เดือน ${fmt(hr['12m'],0)}%</p></div></div>`));
+  s.appendChild(el(`<div class="small muted">ข้อจำกัด: ${esc(B.caveat)}</div>`));
+  return s;
+}
+
+
+/* ---------- live track record of the weekly picks ---------- */
+function renderTrack(){
+  const TK = R.track;
+  const s = sectionShell('track','ผลจริงของตัวเด่น', TK? `บันทึกราคาตอนแนะนำทุกสัปดาห์ แล้ววัดผลเทียบ SET ณ ${esc(TK.set_date||'')} (วันเดียวกันทั้งคู่) · นี่คือการวัดความแม่นที่ตรงที่สุด`:'');
+  if(!TK || !TK.rows.length) return waiting(s,'ประวัติตัวเด่น');
+  const tot = TK.rows.filter(r=>r.avg!=null && r.set!=null);
+  const ex = tot.length? tot.reduce((a,r)=>a+(r.avg-r.set),0)/tot.length : null;
+  const sg = v=> v==null?'–':`<span class="${v>=0?'up':'down'}">${v>0?'+':''}${fmt(v,1)}%</span>`;
+  s.appendChild(el(`<div class="small">ติดตามแล้ว ${TK.rows.length} สัปดาห์ · ชนะ SET เฉลี่ยต่อสัปดาห์ที่แนะนำ: <b>${sg(ex)}</b>${TK.rows.length<8?' · ยังน้อยเกินกว่าจะสรุป ต้องสะสมอย่างน้อย 3–6 เดือน':''}</div>`));
+  s.appendChild(el(`<div class="tbl-wrap"><table><thead><tr><th>สัปดาห์ที่แนะนำ</th><th>เฉลี่ยตัวเด่น</th><th>SET</th><th>ส่วนต่าง</th><th>ชนะ SET</th><th>รายตัว</th></tr></thead><tbody>
+   ${TK.rows.map(r=>`<tr><td class="mono">${esc(r.week)}</td><td class="mono">${sg(r.avg)}</td><td class="mono">${sg(r.set)}</td><td class="mono">${sg(r.avg!=null&&r.set!=null? r.avg-r.set:null)}</td><td class="mono">${r.hit}/${r.items.length}</td><td class="small mono" style="white-space:normal;min-width:260px">${r.items.map(i=>`${i.sym} ${sg(i.ret)}`).join(' · ')}</td></tr>`).join('')}
+   </tbody></table></div>`));
+  return s;
+}
+
+/* ---------- data quality ---------- */
+function renderQA(){
+  const Q = R.qa;
+  const s = sectionShell('qa','ตรวจคุณภาพข้อมูล', Q? `ตรวจอัตโนมัติทุกครั้งที่สร้างข้อมูล ณ ${esc(Q.checked)} · แดง = ต้องแก้ · เหลือง = ควรตรวจ`:'');
+  if(!Q) return waiting(s,'ผลตรวจคุณภาพ');
+  if(!Q.items.length){ s.appendChild(el('<div class="panel small">ไม่พบปัญหา ข้อมูลครบ มีแหล่งที่มา และไม่ล้าสมัย</div>')); return s; }
+  s.appendChild(el(`<div class="panel"><ul class="tl">${Q.items.map(i=>`<li><span class="d"><span class="pill ${i.lvl==='err'?'t-e':'t-c'}">${i.lvl==='err'?'ต้องแก้':'ควรตรวจ'}</span></span><span><b>${esc(i.item)}</b> <span class="muted small">(${esc(i.page)})</span>: ${esc(i.msg)}</span></li>`).join('')}</ul></div>`));
+  return s;
+}
+
+const RENDER = {track:renderTrack, qa:renderQA, picks:renderPicks, scan:renderScan, smart:renderSmart, earnings:renderEarnings, hype:renderHype, map:renderMap, table:renderTable, backtest:renderBacktest, themes:renderThemes, method:renderMethod};
+function renderAll(){
+  compute(); renderHeader(); renderLayoutBar();
+  app.innerHTML='';
+  order.forEach(id=>{ if(!hidden.includes(id) && RENDER[id]) app.appendChild(RENDER[id]()); });
+}
+renderAll();
+})();
+</script>
+</body>
+</html>

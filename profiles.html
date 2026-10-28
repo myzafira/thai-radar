@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Thai Radar Profiles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="radar.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+      <span class="eyebrow">Thai Opportunity Radar · เจาะลึกรายตัว</span>
+      <h1>โปรไฟล์หุ้นที่แนะนำ</h1>
+      <span class="muted small" id="asof"></span>
+    </div>
+    <nav class="nav" id="nav" aria-label="หน้าอื่น"></nav>
+  </header>
+  <div class="disclaimer">งานวิจัยเพื่อประกอบการตัดสินใจ ไม่ใช่คำแนะนำให้ซื้อขาย ทุกข้อเท็จจริงมีวันที่และลิงก์แหล่งที่มาให้ตรวจสอบ ส่วน "มุมมอง" คือการสังเคราะห์ของผู้เขียนจากข้อมูลเหล่านั้น</div>
+  <div id="app" style="display:flex;flex-direction:column;gap:28px"></div>
+</div>
+<script src="data/bundle.js"></script>
+<script>
+(function(){
+const R = window.RADAR, app = document.getElementById('app');
+if(!R || !R.profiles){ app.innerHTML = '<p>ไม่พบข้อมูลโปรไฟล์ ให้รัน <code>python scripts/update_data.py --offline</code></p>'; return; }
+// date helpers: a month/quarter/year value counts as its last day, so a catalyst is "due" only once it fully passes
+const asofDay = new Date(String(R.built||'').slice(0,10));
+const endOf = v=>{ v=String(v||''); let m;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return new Date(v);
+  if((m=v.match(/^(\d{4})-(\d{2})$/))) return new Date(Date.UTC(+m[1], +m[2], 0));
+  if((m=v.match(/^(\d{4})-Q(\d)$/))) return new Date(Date.UTC(+m[1], +m[2]*3, 0));
+  if(/^\d{4}$/.test(v)) return new Date(Date.UTC(+v, 11, 31));
+  return new Date(8.64e15); };
+const ageDays = v=> (asofDay - endOf(v))/864e5;
+const P = R.profiles, D = (R.deep||{}).stocks || {}, L = R.layout || {};
+const snaps = (R.snapshots||[]).slice().sort((a,b)=>a.date<b.date?-1:1), cur = snaps[snaps.length-1] || {quotes:{}};
+const MK = Object.fromEntries(((R.market||{}).rows||[]).map(r=>[r.sym,r]));
+const QW = L.quant_weights;
+if(R.market && QW){ R.market.rows.forEach(r=>{ let tw=0,t=0; Object.entries(QW).forEach(([k,w])=>{ if(r.s[k]!=null){ tw+=w; t+=w*r.s[k]; } }); if(tw) r.total=t/tw; }); }
+const EC = Object.fromEntries(((R.earnings||{}).rows||[]).map(r=>[r.sym,r]));
+const INS = ((R.insider||{}).rows||[]);
+const U = Object.fromEntries(((R.universe||{}).stocks||[]).map(s=>[s.sym,s]));
+const TH = Object.fromEntries(((R.themes||{}).themes||[]).map(t=>[t.id,t]));
+const fmt=(v,d=1)=> v==null||isNaN(v)?'–':Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const sg=(v,d=1)=> v==null||isNaN(v)?'–':(v>0?'+':'')+fmt(v,d)+'%';
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const el=h=>{const d=document.createElement('div'); d.innerHTML=h.trim(); return d.firstElementChild;};
+const host = s=>{ try{ return new URL(s).hostname.replace(/^www\./,''); }catch(e){ return 'แหล่งที่มา'; } };
+const src = u=> u? `<a class="src" href="${esc(u)}" target="_blank" rel="noopener">${esc(host(u))}</a>` : '';
+const store={get(k,d){try{const v=localStorage.getItem('radarp.'+k);return v?JSON.parse(v):d;}catch(e){return d;}},set(k,v){try{localStorage.setItem('radarp.'+k,JSON.stringify(v));}catch(e){}}};
+
+// nav: local files when opened from disk, artifact links when published
+const local = true;
+document.getElementById('nav').innerHTML = (L.pages||[]).map(p=>{ const href = local? p.file : (p.url||p.file); return `<a href="${esc(href)}" ${p.id==='profiles'?'aria-current="page"':''}>${esc(p.label)}</a>`; }).join('');
+document.getElementById('asof').textContent = `วิจัยล่าสุด ${P.updated} · ตัวเลขการเงิน ${(R.deep||{}).date||'–'} · ราคา ${cur.date||'–'} · สร้างเมื่อ ${String(R.built||'').replace('T',' ')}`;
+
+const syms = Object.keys(P.stocks);
+function price(s){ const q=cur.quotes[s]; return q? q.p : (MK[s]? MK[s].p : (D[s]||{}).p); }
+function row(s){
+  const p=P.stocks[s], d=D[s]||{}, m=MK[s], px=price(s);
+  const tgt = d.tgt? d.tgt[1] : null;
+  return {s, p, d, m, px, up: tgt&&px? (tgt/px-1)*100 : null, scan: m? m.total : null};
+}
+const rows = syms.map(row);
+let sel = store.get('sel', syms[0]); if(!P.stocks[sel]) sel = syms[0];
+
+/* ---------- overview table ---------- */
+function overview(){
+  const s = el(`<section class="block"><div class="sec-head"><div><h2>ภาพรวม ${rows.length} ตัว</h2><div class="muted small">${esc(P.method)}</div></div></div></section>`);
+  const st = P.stances||{};
+  const body = rows.map(r=>`<tr class="row" data-s="${r.s}" tabindex="0"><td><b>${r.s}</b> <span class="pill ${r.p.role==='pick'?'t-a':'t-b'}">${r.p.role==='pick'?'ตัวเด่น':'จากสแกน'}</span></td>
+    <td><span class="pill ${st[r.p.stance]||'t-d'}">${esc(r.p.stance||'')}</span></td>
+    <td class="n">${fmt(r.px,2)}</td><td class="n">${r.d.tgt?fmt(r.d.tgt[1],2):'–'}</td><td class="n ${r.up>0?'up':r.up<0?'down':''}">${sg(r.up,0)}</td>
+    <td class="n">${r.d.n??'–'}</td><td class="n">${fmt(r.d.fpe,1)}</td><td class="n">${fmt(r.d.roe,1)}</td><td class="n">${fmt(r.d.de,0)}</td><td class="n">${sg(r.d.revg)}</td>
+    <td class="n">${r.scan!=null?fmt(r.scan,0):'–'}</td><td class="small">${(r.p.flags||[]).map(f=>`<span class="flag">⚠ ${esc(f)}</span>`).join(' ')}</td></tr>`).join('');
+  const t = el(`<div class="tbl-wrap"><table><thead><tr><th>หุ้น</th><th>มุมมอง</th><th class="n">ราคา</th><th class="n">เป้าเฉลี่ย</th><th class="n">Upside</th><th class="n">นักวิเคราะห์</th><th class="n">Fwd P/E</th><th class="n">ROE %</th><th class="n">D/E %</th><th class="n">รายได้ YoY</th><th class="n">คะแนนสแกน</th><th>ข้อควรระวังข้อมูล</th></tr></thead><tbody>${body}</tbody></table></div>`);
+  t.querySelectorAll('tr.row').forEach(tr=>{ const f=()=>{ sel=tr.dataset.s; store.set('sel',sel); render(); document.getElementById('detail').scrollIntoView({behavior:'smooth'}); }; tr.onclick=f; tr.onkeydown=e=>{ if(e.key==='Enter') f(); }; });
+  s.appendChild(t);
+  s.appendChild(el(`<div class="small muted">Upside = เป้าราคาเฉลี่ยนักวิเคราะห์ (Yahoo) เทียบราคาล่าสุด · คะแนนสแกน = คะแนนเชิงปริมาณจากการสแกนทั้งตลาด (0-100) · คลิกแถวเพื่อดูรายละเอียด</div>`));
+  return s;
+}
+
+/* ---------- detail ---------- */
+function rangeBar(d, px){
+  if(!d.tgt || px==null) return '<p class="small muted" style="margin:0">ไม่มีเป้าราคาจากนักวิเคราะห์</p>';
+  const [lo,mean,hi] = d.tgt, a=Math.min(lo,px)*0.95, b=Math.max(hi,px)*1.05, x=v=>((v-a)/(b-a)*100).toFixed(1)+'%';
+  return `<div class="range" role="img" aria-label="ช่วงเป้าราคา ${lo}-${hi} ราคา ${px}"><div class="bar"></div><div class="fill" style="left:${x(lo)};width:calc(${x(hi)} - ${x(lo)})"></div>
+    <div class="mk" style="left:${x(px)};background:var(--gold);width:3px"></div><span class="lb" style="left:${x(px)};color:var(--gold)">ราคา ${fmt(px,2)}</span>
+    <div class="mk" style="left:${x(mean)}"></div><span class="lb b" style="left:${x(mean)}">เฉลี่ย ${fmt(mean,2)}</span>
+    <span class="lb b" style="left:${x(lo)}">${fmt(lo,2)}</span><span class="lb b" style="left:${x(hi)}">${fmt(hi,2)}</span></div>`;
+}
+function niChart(d){
+  const ys = Object.keys(d.ni||{}).sort(); if(ys.length<2) return '<p class="small muted" style="margin:0">ข้อมูลกำไรย้อนหลังไม่พอ</p>';
+  const vals = ys.map(y=>d.ni[y]), mx = Math.max(...vals.map(Math.abs)), w=60*ys.length, h=120, z=h/2;
+  const bars = ys.map((y,i)=>{ const v=d.ni[y], bh=Math.abs(v)/mx*(z-16); const yy = v>=0? z-bh : z; return `<rect x="${i*60+14}" y="${yy}" width="32" height="${Math.max(bh,1)}" rx="2" fill="${v>=0?'var(--accent)':'var(--bad)'}"></rect><text x="${i*60+30}" y="${v>=0?yy-4:yy+bh+12}" text-anchor="middle" font-size="11" class="mono">${fmt(v,2)}</text><text x="${i*60+30}" y="${h-2}" text-anchor="middle" class="lbl">${y}</text>`; }).join('');
+  return `<svg viewBox="0 0 ${w} ${h+4}" style="width:100%;max-width:${w*1.6}px;height:auto" role="img" aria-label="กำไรสุทธิรายปี"><line x1="0" x2="${w}" y1="${z}" y2="${z}" class="axis"></line>${bars}</svg><div class="small muted">กำไรสุทธิรายปี (พันล้านบาท)</div>`;
+}
+function detail(){
+  const r = rows.find(x=>x.s===sel), p=r.p, d=r.d, m=r.m, ec=EC[sel], u=U[sel];
+  const s = el(`<section class="block" id="detail"><div class="sec-head"><div><h2>เจาะลึกรายตัว</h2><div class="muted small">เลือกหุ้นจากรายการ</div></div></div></section>`);
+  const side = syms.map(x=>{ const rr=rows.find(y=>y.s===x); return `<button class="stock-btn" data-s="${x}" aria-pressed="${x===sel}"><b>${x}</b><span class="small muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(P.stocks[x].name)}</span><span class="pill ${(P.stances||{})[P.stocks[x].stance]||'t-d'}">${esc(P.stocks[x].stance||'')}</span></button>`; }).join('');
+  const kinds = {company:'บริษัท',broker:'โบรกเกอร์',regulator:'ภาครัฐ',data:'ข้อมูล'};
+  const facts = (p.facts||[]).slice().sort((a,b)=>a.d<b.d?1:-1).map(f=>`<li><span class="d">${esc(f.d)}</span><span><span class="tag k-${f.k}">${kinds[f.k]||f.k}</span>${esc(f.t)} ${src(f.src)}</span></li>`).join('');
+  const brokers = (p.brokers||[]).map(b=>`<li><span class="d">${esc(b.d)}</span><span><b>${esc(b.who)}</b>: ${esc(b.view)} ${src(b.src)}${ageDays(b.d)>180?` <span class="pill t-c">เก่า ${Math.round(ageDays(b.d)/30)} เดือน ใช้อ้างอิงไม่ได้แล้ว</span>`:''}</span></li>`).join('') || '<li class="small muted">ไม่มีบทวิเคราะห์จากโบรกเกอร์ที่ตรวจพบ</li>';
+  const cats = (p.catalysts||[]).map(c=>`<li><span class="d">${esc(c.d)}</span><span>${esc(c.t)}${endOf(c.d)<asofDay?' <span class="pill t-c">ถึงกำหนดแล้ว รอตรวจผล</span>':''}</span></li>`).join('');
+  const ins = INS.filter(x=>x.sym===sel).slice(0,8);
+  const kp = [
+    ['ราคา',fmt(r.px,2)],['Fwd P/E',fmt(d.fpe,1)],['P/BV',fmt(d.pb,2)],['EV/EBITDA',fmt(d.ev_ebitda,1)],['ROE',fmt(d.roe,1)+'%'],['อัตรากำไรสุทธิ',fmt(d.nm,1)+'%'],
+    ['อัตรากำไรขั้นต้น',fmt(d.gm,1)+'%'],['รายได้ YoY',sg(d.revg)],['หนี้/ทุน',fmt(d.de,0)+'%'],['เงินสด / หนี้ (พันล.)',fmt(d.cash,2)+' / '+fmt(d.debt,2)],['FCF (พันล.)',fmt(d.fcf,2)],
+    ['EPS ย้อนหลัง → ปีหน้า',fmt(d.epsT,2)+' → '+fmt(d.epsF,2)],['ผู้บริหาร/ผู้ถือใหญ่ถือ',fmt(d.ins,0)+'%'],['สถาบันถือ',fmt(d.inst,1)+'%'],['เบต้า',fmt(d.beta,2)]
+  ].map(([k,v])=>`<div class="kpi"><b>${v}</b><span>${k}</span></div>`).join('');
+  const scan = m? Object.entries(m.s).map(([k,v])=>`${({growth:'โต',value:'คุ้ม',momentum:'เทรนด์',discovery:'เห็นก่อน',accumulation:'สะสม',revision:'ปรับประมาณการ'})[k]||k} ${fmt(v,0)}`).join(' · ') : '';
+  const V = {ok:['น่าเชื่อ','t-a'],caution:['ระวัง','t-c'],fail:['ข้อมูลผิด','t-d']};
+  const body = el(`<div class="layout"><div class="side list">${side}</div>
+    <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+      <div class="panel"><div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:baseline"><div><h2 style="font-size:26px">${sel} <span class="muted" style="font-size:16px">${esc(p.name)}</span></h2><div class="small muted">${u&&TH[u.theme]?'ธีม: '+esc(TH[u.theme].name):'ยังไม่อยู่ในรายการติดตามของ Radar'}${m?' · '+esc(m.sector||''):''}</div></div><span class="pill ${(P.stances||{})[p.stance]||'t-d'}" style="font-size:13px">มุมมอง: ${esc(p.stance||'')}</span></div>
+        <p style="margin:0">${esc(p.business)}</p><p style="margin:0"><b>จุดแข็ง/คูเมือง:</b> ${esc(p.moat)}</p>
+        <div class="note" style="display:block;background:var(--accent-soft);border-color:var(--accent)"><span class="eyebrow">โอกาสที่ตลาดยังไม่เห็นเต็มที่</span><p>${esc(p.thesis)}</p></div>
+        ${(p.flags||[]).length?`<div class="flags">${p.flags.map(f=>`<span class="flag">⚠ ${esc(f)}</span>`).join('')}</div>`:''}
+      </div>
+      <div class="grid2">
+        <div class="panel"><h3>ตัวเลขสำคัญ</h3><div class="kpis">${kp}</div>${d.warn?`<p class="flag" style="margin:0">⚠ ${esc(d.warn)}</p>`:''}<div class="small muted">ที่มา: ${esc((R.deep||{}).source||'')} ณ ${esc((R.deep||{}).date||'')}</div></div>
+        <div class="panel"><h3>เป้าราคานักวิเคราะห์</h3>${rangeBar(d,r.px)}<div class="small">${d.n?`${d.n} ราย · คำแนะนำเฉลี่ย ${d.rec!=null?fmt(d.rec,2)+' (1 = ซื้อแรง, 5 = ขาย)':'–'} · upside ${sg(r.up,0)}`:'ไม่มีนักวิเคราะห์ตาม'}</div><h3 style="margin-top:8px">กำไรย้อนหลัง</h3>${niChart(d)}</div>
+      </div>
+      <div class="panel"><h3>ข้อเท็จจริงล่าสุด (เรียงจากใหม่)</h3><ul class="tl">${facts}</ul></div>
+      <div class="grid2">
+        <div class="panel"><h3>บทวิเคราะห์ / ฉันทามติ</h3><ul class="tl">${brokers}</ul></div>
+        <div class="panel"><h3>ตัวเร่งที่รออยู่</h3><ul class="tl">${cats}</ul>
+          ${ec?`<h3 style="margin-top:6px">ผลตรวจกำไรจริง</h3><p class="small" style="margin:0"><span class="pill ${V[ec.verdict][1]}">${V[ec.verdict][0]}</span> ชนะประมาณการ ${esc(ec.beats)} · ล่าสุด ${esc(ec.last)} · ${esc(ec.note)}</p>`:''}</div>
+      </div>
+      <div class="grid2">
+        <div class="panel"><h3>ความเสี่ยง</h3><ul style="margin:0;padding-left:18px">${(p.risks||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+        <div class="panel"><h3>สัญญาณตลาด</h3>${m?`<p class="small mono" style="margin:0">${scan}</p><p class="small" style="margin:0">ผลตอบแทน 1 ปี ${sg(m.ret12,0)} · เทียบเส้น 200 วัน ${sg(m.r200*100,0)} · ปรับประมาณการ 90 วัน ${m.rev90==null?'–':sg(m.rev90*100,1)} · มูลค่าซื้อขาย ${fmt(m.turn,0)} ล.บ./วัน</p>`:'<p class="small muted" style="margin:0">ไม่มีในผลสแกน (สภาพคล่องต่ำกว่าเกณฑ์)</p>'}
+          <h3 style="margin-top:6px">ผู้บริหารซื้อขาย (แบบ 59, 30 วัน)</h3>${ins.length?`<ul class="tl">${ins.map(x=>`<li><span class="d">${esc(x['Transaction Date'])}</span><span>${esc(x['Name of Management'])}: ${esc(x['The methods of Acquisition/Disposition'])} ${fmt(x['Amount'],0)} หุ้น @ ${esc(x['Average Price (baht)'])}</span></li>`).join('')}</ul>`:'<p class="small muted" style="margin:0">ไม่พบรายการ</p>'}</div>
+      </div>
+      <div class="panel" style="border-color:var(--gold)"><h3>มุมมองและวิธีใช้ (สังเคราะห์โดยผู้เขียน)</h3><p style="margin:0">${esc(p.playbook)}</p></div>
+    </div></div>`);
+  body.querySelectorAll('.stock-btn').forEach(b=>b.onclick=()=>{ sel=b.dataset.s; store.set('sel',sel); render(); });
+  s.appendChild(body); return s;
+}
+function render(){ app.innerHTML=''; app.appendChild(overview()); app.appendChild(detail()); }
+render();
+})();
+</script>
+</body>
+</html>

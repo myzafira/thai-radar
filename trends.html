@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Thai Trend Cycle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="radar.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+      <span class="eyebrow">Thai Opportunity Radar · เทรนด์ 3 ปี</span>
+      <h1>เทรนด์บน Hype Cycle วันนี้</h1>
+      <span class="muted small" id="asof"></span>
+    </div>
+    <nav class="nav" id="nav" aria-label="หน้าอื่น"></nav>
+  </header>
+  <div class="disclaimer">งานวิจัยเพื่อประกอบการตัดสินใจ ไม่ใช่คำแนะนำให้ซื้อขาย ตำแหน่งบนวงจรเป็นการประเมินของ "ราคาหุ้นในธีม" เทียบกับความคาดหวังของตลาด โดยใช้แนวคิด Gartner Hype Cycle ไม่ใช่การจัดอันดับของ Gartner เอง ส่วน "Hype Cycle โลก" แยกชัดว่าจุดไหน Gartner ระบุจริง และจุดไหนเราประเมิน</div>
+  <div id="app" style="display:flex;flex-direction:column;gap:30px"></div>
+</div>
+<script src="data/bundle.js"></script>
+<script>
+(function(){
+const R = window.RADAR, app = document.getElementById('app');
+if(!R || !R.trends){ app.innerHTML='<p>ไม่พบข้อมูลเทรนด์ ให้รัน <code>python scripts/update_data.py --offline</code></p>'; return; }
+const TR = R.trends, TS = R.themes, L = R.layout||{};
+const ST = TS.stages, TH = Object.fromEntries(TS.themes.map(t=>[t.id,t]));
+const U = (R.universe||{}).stocks||[];
+const MK = Object.fromEntries(((R.market||{}).rows||[]).map(r=>[r.sym,r]));
+const QW = L.quant_weights;
+if(R.market && QW){ R.market.rows.forEach(r=>{ let tw=0,t=0; Object.entries(QW).forEach(([k,w])=>{ if(r.s[k]!=null){ tw+=w; t+=w*r.s[k]; } }); if(tw) r.total=t/tw; }); }
+const fmt=(v,d=1)=> v==null||isNaN(v)?'–':Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const el=h=>{const d=document.createElement('div'); d.innerHTML=h.trim(); return d.firstElementChild;};
+const host=s=>{ try{ return new URL(s).hostname.replace(/^www\./,''); }catch(e){ return 'แหล่งที่มา'; } };
+const src=u=> u? `<a class="src" href="${esc(u)}" target="_blank" rel="noopener">${esc(host(u))}</a>` : '';
+const store={get(k,d){try{const v=localStorage.getItem('radart.'+k);return v?JSON.parse(v):d;}catch(e){return d;}},set(k,v){try{localStorage.setItem('radart.'+k,JSON.stringify(v));}catch(e){}}};
+const local = true;
+document.getElementById('nav').innerHTML=(L.pages||[]).map(p=>`<a href="${esc(local?p.file:(p.url||p.file))}" ${p.id==='trends'?'aria-current="page"':''}>${esc(p.label)}</a>`).join('');
+document.getElementById('asof').textContent=`สถานะ ณ ${TR.updated} · สร้างเมื่อ ${String(R.built||'').replace('T',' ')}`;
+const DIR = {up:['▲','กำลังเร่งขึ้น','dir-up'],down:['▼','กำลังอ่อนลง','dir-down'],flat:['■','ทรงตัว','dir-flat']};
+const CONF = {high:'มั่นใจสูง',mid:'มั่นใจปานกลาง',low:'มั่นใจต่ำ'};
+const maxAge = 120*864e5, today = new Date(TR.updated);
+const fresh = e=>{ const d=new Date(e.d.length===7? e.d+'-01' : e.d.length===4? e.d+'-01-01' : e.d); return isNaN(d) || today-d <= maxAge; };
+const ids = Object.keys(TR.trends);
+let sel = store.get('sel', null);
+const imp = v=> v>0? `<span class="imp imp-p">+${v}</span>` : v<0? `<span class="imp imp-n">${v}</span>` : `<span class="imp imp-z">0</span>`;
+function members(id){ return U.filter(s=>s.theme===id).map(s=>({sym:s.sym, sc: MK[s.sym]? MK[s.sym].total : null})).sort((a,b)=>(b.sc??-1)-(a.sc??-1)); }
+function section(title, sub){ return el(`<section class="block"><div class="sec-head"><div><h2>${title}</h2>${sub?`<div class="muted small">${sub}</div>`:''}</div></div></section>`); }
+
+/* ---------- summary + macro ---------- */
+function summary(){
+  const s = section('ภาพรวมวันนี้');
+  s.appendChild(el(`<div class="note"><div><span class="eyebrow">สรุปสัปดาห์</span><h3 style="margin-top:6px">${esc(TR.headline)}</h3><p>${esc(TR.summary)}</p></div>
+    <div><span class="eyebrow">ตัวชี้วัดเศรษฐกิจที่ยืนยันแล้ว</span><div class="kpis" style="margin-top:8px">${(TR.macro||[]).map(m=>`<div class="kpi tone-${m.tone}"><b>${esc(m.v)}</b><span>${esc(m.k)} · ${esc(m.d)}</span><span>${esc(m.note)} ${src(m.src)}</span></div>`).join('')}</div></div></div>`));
+  return s;
+}
+
+/* ---------- hype curve ---------- */
+function hypeY(x){ const peak=Math.exp(-Math.pow((x-0.30)/0.085,2))*0.92; const slope=0.62/(1+Math.exp(-(x-0.68)/0.07)); return Math.min(1,peak+slope*0.95+0.06); }
+function curve(){
+  const s = section('ทุกเทรนด์บนวงจรเดียว','▲ เร่งขึ้น ▼ อ่อนลง ■ ทรงตัว (ทิศทางของราคาหุ้นในธีม) · ขนาดจุด = แรงหนุนระยะ 3 ปี · คลิกเพื่อดูรายละเอียด');
+  const w=920,h=400,pl=30,pr=20,pt=44,pb=58,iw=w-pl-pr,ih=h-pt-pb;
+  let path=''; for(let i=0;i<=200;i++){ const x=i/200; path+=(i?'L':'M')+(pl+x*iw).toFixed(1)+','+(pt+(1-hypeY(x))*ih).toFixed(1); }
+  const by={}; ids.forEach(id=>{ const st=TR.trends[id].stage; (by[st]=by[st]||[]).push(id); });
+  let dots='';
+  Object.entries(by).forEach(([st,list])=>{
+    // weakening themes sit further along (peak) or deeper (trough); strengthening ones lead
+    list.sort((a,b)=>({down:0,flat:1,up:2}[TR.trends[a].dir])-({down:0,flat:1,up:2}[TR.trends[b].dir]));
+    if(st==='peak') list.reverse();
+    list.forEach((id,i)=>{
+    const t=TR.trends[id], th=TH[id]||{name:id,tailwind:3}, d=DIR[t.dir];
+    const x0=ST[st].x+(i-(list.length-1)/2)*0.06;
+    const cx=pl+x0*iw, cy=pt+(1-hypeY(x0))*ih, rad=6+th.tailwind*2, below=i%2===1, dsel=sel===id;
+    const name = th.name.length>18? th.name.slice(0,17)+'…' : th.name, tw = name.length*7.2+18;
+    let left = !below; if(left && cx-rad-5-tw<0) left=false; if(!left && cx+rad+5+tw>w) left=true;
+    dots+=`<g class="hdot" data-id="${id}" tabindex="0" role="button" aria-label="${esc(th.name)} ${d[1]}" style="cursor:pointer"><circle cx="${cx}" cy="${cy}" r="${rad}" fill="var(--accent)" fill-opacity="${t.conf==='high'?.85:t.conf==='mid'?.6:.35}" stroke="${dsel?'var(--gold)':'var(--panel)'}" stroke-width="${dsel?3:1.5}"></circle>
+      <text x="${left?cx-rad-5:cx+rad+5}" y="${left?cy-rad*0.5:cy+rad*0.5+10}" text-anchor="${left?'end':'start'}" font-size="11.5" font-weight="600">${esc(name)} <tspan fill="${t.dir==='up'?'var(--good)':t.dir==='down'?'var(--bad)':'var(--muted)'}">${d[0]}</tspan></text></g>`;
+  });});
+  let ticks=''; Object.entries(ST).forEach(([k,v])=>{ const x=pl+v.x*iw; ticks+=`<text x="${x}" y="${h-30}" text-anchor="middle" class="lbl" font-weight="600">${v.th}</text><text x="${x}" y="${h-15}" text-anchor="middle" class="lbl">${v.label.split(' ')[0]==='Peak'?'Peak':v.label.split(' of ')[0].replace('Innovation ','')}</text>`; });
+  const defs='';
+  const svg=`<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Hype cycle ของเทรนด์">${defs}<line x1="${pl}" x2="${w-pr}" y1="${pt+ih}" y2="${pt+ih}" class="axis"></line><path d="${path}" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 4"></path>${ticks}${dots}</svg>`;
+  const p=el(`<div class="panel"><div class="chart">${svg}</div><div class="small muted">ความเข้มของจุด = ความมั่นใจในการประเมิน · เทียบโลก: ${(TR.global||[]).map(g=>`${esc(g.d)} ${esc(g.t)} ${src(g.src)}`).join(' · ')}</div></div>`);
+  p.querySelectorAll('.hdot').forEach(g=>{ const f=()=>{ sel=g.dataset.id; store.set('sel',sel); render(); document.getElementById('tr-'+sel)?.scrollIntoView({behavior:'smooth'}); }; g.onclick=f; g.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();f();} }; });
+  s.appendChild(p); return s;
+}
+
+
+/* ---------- global -> Thailand ---------- */
+const GM = TR.global_map||[];
+const BASIS = {g:['Gartner','t-a'],g2:['Gartner (แหล่งรอง)','t-c'],a:['ประเมินจากข้อมูล','t-d']};
+let gsel = store.get('gsel', null);
+function spread(list, stageOf, order, gap=0.07){
+  const by={}, pos={}, idx={}, cnt={}; list.forEach(id=>{ const st=stageOf(id); (by[st]=by[st]||[]).push(id); });
+  Object.entries(by).forEach(([st,l])=>{ if(order) l.sort(order); if(st==='peak') l.reverse(); l.forEach((id,i)=>{ pos[id]=ST[st].x+(i-(l.length-1)/2)*gap; idx[id]=i; cnt[id]=l.length; }); });
+  return {pos,idx,cnt};
+}
+function globalMap(){
+  if(!GM.length) return null;
+  const s=section('Hype Cycle โลก → ประเทศไทย','บน: ตำแหน่งเทคโนโลยี/เทรนด์ระดับโลก · ล่าง: ธีมหุ้นไทย · เส้น = ช่องทางที่เทรนด์โลกส่งผลถึงไทย · คลิกจุดบนเพื่อดูรายละเอียด');
+  const w=920,h=620,pl=30,pr=20,ih=190,bands=[{y:44,t:'โลก'},{y:356,t:'ไทย'}];
+  const Y=(b,x)=>bands[b].y+(1-hypeY(x))*ih, X=x=>pl+x*(w-pl-pr);
+  const dirOrd=(a,b)=>({down:0,flat:1,up:2}[TR.trends[a].dir])-({down:0,flat:1,up:2}[TR.trends[b].dir]);
+  const G=spread(GM.map(g=>g.id), id=>GM.find(g=>g.id===id).stage, null, 0.075), T=spread(ids, id=>TR.trends[id].stage, dirOrd), gp=G.pos, tp=T.pos;
+  let out='';
+  bands.forEach((b,bi)=>{ let path=''; for(let i=0;i<=200;i++){ const x=i/200; path+=(i?'L':'M')+X(x).toFixed(1)+','+Y(bi,x).toFixed(1); }
+    out+=`<text x="${pl}" y="${b.y-16}" font-weight="700" font-size="13" fill="var(--accent)">${b.t}</text><line x1="${pl}" x2="${w-pr}" y1="${b.y+ih}" y2="${b.y+ih}" class="axis"></line><path d="${path}" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 4"></path>`;
+    Object.values(ST).forEach(v=>{ out+=`<text x="${X(v.x)}" y="${b.y+ih+16}" text-anchor="middle" class="lbl">${v.th}</text>`; }); });
+  let links='';
+  GM.forEach(g=>{ const x1=X(gp[g.id]), y1=Y(0,gp[g.id]), on=gsel===g.id;
+    g.themes.forEach(t=>{ if(tp[t]==null) return; const x2=X(tp[t]), y2=Y(1,tp[t]);
+      links+=`<path d="M${x1},${y1} C${x1},${(y1+y2)/2} ${x2},${(y1+y2)/2} ${x2},${y2}" fill="none" stroke="${on?'var(--gold)':'var(--muted)'}" stroke-opacity="${on?.95:gsel?.08:.28}" stroke-width="${on?2.4:1.2}"></path>`; }); });
+  // labels alternate above/below within a stage group and lean away from the curve's slope, so they sit in empty space
+  const label=(cx,cy,rad,name,i,extra,x0)=>{ const tw=name.length*6.6+(extra?14:0), below=i%2===1, sl=hypeY(x0+0.01)-hypeY(x0-0.01);
+    const lean = Math.abs(sl)<0.004? 0 : ((sl>0)!==below? -1 : 1);
+    let x = lean<0? cx-rad-2-tw/2 : lean>0? cx+rad+2+tw/2 : cx; x=Math.max(pl+tw/2, Math.min(w-pr-tw/2, x));
+    return `<text x="${x}" y="${below?cy+rad+14:cy-rad-6}" text-anchor="middle" font-size="11.5" font-weight="600">${esc(name)}${extra||''}</text>`; };
+  let dots='';
+  const hot = gsel? new Set((GM.find(g=>g.id===gsel)||{themes:[]}).themes) : null;
+  GM.forEach((g,i)=>{ const cx=X(gp[g.id]), cy=Y(0,gp[g.id]), on=gsel===g.id, rad=8;
+    dots+=`<g class="gdot" data-id="${g.id}" tabindex="0" role="button" aria-label="${esc(g.name)}" style="cursor:pointer"><circle cx="${cx}" cy="${cy}" r="${rad}" fill="${g.basis==='a'?'var(--panel)':'var(--info)'}" stroke="${on?'var(--gold)':'var(--info)'}" stroke-width="${on?3:2}"></circle>${label(cx,cy,rad,g.short,G.idx[g.id],'',gp[g.id])}</g>`; });
+  ids.forEach((id,i)=>{ const t=TR.trends[id], th=TH[id]||{name:id,tailwind:3}, cx=X(tp[id]), cy=Y(1,tp[id]), rad=5+th.tailwind*1.6, d=DIR[t.dir];
+    const nm=th.name.length>16? th.name.slice(0,15)+'…':th.name;
+    dots+=`<g opacity="${hot&&!hot.has(id)?.3:1}"><circle cx="${cx}" cy="${cy}" r="${rad}" fill="var(--accent)" fill-opacity="${t.conf==='high'?.85:t.conf==='mid'?.6:.35}" stroke="var(--panel)" stroke-width="1.5"></circle>${label(cx,cy,rad,nm,T.idx[id],` <tspan fill="${t.dir==='up'?'var(--good)':t.dir==='down'?'var(--bad)':'var(--muted)'}">${d[0]}</tspan>`,tp[id])}</g>`; });
+  const svg=`<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="เทียบ Hype Cycle โลกกับไทย">${out}${links}${dots}</svg>`;
+  const p=el(`<div class="panel"><div class="chart">${svg}</div><div class="small muted">จุดสีฟ้าทึบ = ตำแหน่งที่ Gartner ระบุ · จุดกลวง = เราประเมินจากข้อมูลจริง (Gartner ไม่ได้เปิดเผย) · ${esc(TR.global_note||'')}</div></div>`);
+  p.querySelectorAll('.gdot').forEach(g=>{ const f=()=>{ gsel = gsel===g.dataset.id? null : g.dataset.id; store.set('gsel',gsel); render(); document.getElementById('gm-'+(gsel||''))?.scrollIntoView({behavior:'smooth',block:'nearest'}); }; g.onclick=f; g.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();f();} }; });
+  s.appendChild(p);
+  const rows=GM.map(g=>{ const b=BASIS[g.basis]||BASIS.a, on=gsel===g.id;
+    const thai=g.themes.map(t=>{ const tt=TR.trends[t]; if(!tt) return ''; const d=DIR[tt.dir]; return `<a href="#tr-${t}" class="pill t-d" style="text-decoration:none">${esc((TH[t]||{}).name||t)} · ${esc(ST[tt.stage].th)} <span class="${d[2]}">${d[0]}</span></a>`; }).join('');
+    const stocks=[...new Set(g.themes.flatMap(t=>members(t).slice(0,4).map(m=>m.sym)))];
+    return `<article class="panel" id="gm-${g.id}" style="${on?'border-color:var(--gold);border-width:2px':''}">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline"><h3 style="font-size:17px">${esc(g.name)}</h3>
+      <div class="flags"><span class="pill t-a">โลก: ${esc(ST[g.stage].th)}</span><span class="pill ${b[1]}">${b[0]}</span><span class="pill t-d">${esc(g.d)}</span></div></div>
+      <p style="margin:0" class="small">${esc(g.fact)} ${(g.srcs||[]).map(src).join(' ')}</p>
+      <div class="flags"><span class="small"><b>ส่งถึงไทย →</b></span>${thai}</div>
+      <div class="grid2 small"><div><b>ช่องทางเชื่อม:</b> ${esc(g.link)}</div><div><b>ไทยเทียบโลก:</b> ${esc(g.lag)}</div></div>
+      <div class="small"><b>สัญญาณเตือน:</b> ${esc(g.watch)}</div>
+      <div class="small"><b>หุ้นไทยที่ได้รับผล:</b> <span class="mono">${stocks.join(' · ')||'–'}</span></div></article>`; }).join('');
+  s.appendChild(el(`<div class="grid2">${rows}</div>`));
+  return s;
+}
+
+/* ---------- combined playbook ---------- */
+function playbook(){
+  const s=section('รวมทุกเทรนด์: จัดน้ำหนักอย่างไร','สังเคราะห์โดยผู้เขียนจากตำแหน่งบนวงจร ทิศทาง และหลักฐานล่าสุด');
+  const cols=['var(--good)','var(--accent)','var(--warn)','var(--info)','var(--muted)'];
+  s.appendChild(el(`<div class="grid2">${(TR.playbook||[]).map((b,i)=>`<div class="bucket" style="border-color:${cols[i%cols.length]}"><b>${esc(b.t)}</b><p style="margin:4px 0" class="small">${esc(b.items)}</p><div class="flags">${b.themes.map(id=>{ const t=TR.trends[id]; const d=DIR[t?t.dir:'flat']; return `<a href="#tr-${id}" class="pill t-d" style="text-decoration:none">${esc((TH[id]||{}).name||id)} <span class="${d[2]}">${d[0]}</span></a>`; }).join('')}</div></div>`).join('')}</div>`));
+  return s;
+}
+
+/* ---------- event feed ---------- */
+function feed(){
+  const s=section('เกิดอะไรขึ้นล่าสุด (ทุกเทรนด์)','เรียงจากใหม่ไปเก่า ตัวเลขหลังวันที่ = ผลต่อธีม (+2 หนุนมาก ถึง -2 กดดันมาก)');
+  const all=[]; ids.forEach(id=>(TR.trends[id].events||[]).filter(fresh).forEach(e=>all.push(Object.assign({id},e))));
+  all.sort((a,b)=>a.d<b.d?1:-1);
+  s.appendChild(el(`<div class="panel"><ul class="tl">${all.slice(0,16).map(e=>`<li><span class="d">${esc(e.d)}</span><span>${imp(e.imp)} <b>${esc((TH[e.id]||{}).name||e.id)}</b>: ${esc(e.t)} ${src(e.src)}</span></li>`).join('')}</ul></div>`));
+  return s;
+}
+
+/* ---------- per trend ---------- */
+function cards(){
+  const s=section('แยกทีละเทรนด์','สถานะวันนี้ เหตุการณ์ล่าสุด สิ่งที่คาดว่าจะเกิด และหุ้นที่ได้ประโยชน์ (คะแนนสแกน)');
+  const order = ids.slice().sort((a,b)=>(ST[TR.trends[b].stage].score+(TH[b]||{}).tailwind*6)-(ST[TR.trends[a].stage].score+(TH[a]||{}).tailwind*6));
+  const g=el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+  order.forEach(id=>{
+    const t=TR.trends[id], th=TH[id]||{name:id}, d=DIR[t.dir], st=ST[t.stage], prev=th.stage;
+    const ev=(t.events||[]).filter(fresh).slice().sort((a,b)=>a.d<b.d?1:-1);
+    const mem=members(id);
+    g.appendChild(el(`<article class="panel" id="tr-${id}" style="${sel===id?'border-color:var(--gold);border-width:2px':''}">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline"><h3 style="font-size:19px">${esc(th.name)}</h3>
+        <div class="flags"><span class="pill t-a">${esc(st.th)}</span><span class="pill t-d ${d[2]}">${d[0]} ${d[1]}</span><span class="pill t-d">${CONF[t.conf]||''}</span>${prev&&prev!==t.stage?`<span class="pill t-c">เดิม: ${esc(ST[prev].th)}</span>`:''}${th.horizon?`<span class="pill t-d">${esc(th.horizon)}</span>`:''}</div></div>
+      <p style="margin:0"><b>วันนี้:</b> ${esc(t.now)}</p>
+      <ul class="tl">${ev.map(e=>`<li><span class="d">${esc(e.d)}</span><span>${imp(e.imp)} ${esc(e.t)} ${src(e.src)}</span></li>`).join('')||'<li class="small muted">ไม่มีเหตุการณ์ใหม่ใน 120 วัน</li>'}</ul>
+      <div class="horizon"><div><b>3 เดือน</b>${esc(t.next['3m'])}</div><div><b>12 เดือน</b>${esc(t.next['12m'])}</div><div><b>36 เดือน</b>${esc(t.next['36m'])}</div></div>
+      <div class="grid2"><div><b class="small">สัญญาณที่ต้องดู</b><ul style="margin:4px 0;padding-left:18px" class="small">${(t.watch||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+        <div><b class="small">ความเสี่ยง</b><ul style="margin:4px 0;padding-left:18px" class="small">${(t.risks||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div></div>
+      <div class="small"><b>หุ้นในธีม:</b> <span class="mono">${mem.map(m=>`${m.sym}${m.sc!=null?' '+fmt(m.sc,0):''}`).join(' · ')||'–'}</span></div>
+      ${(()=>{ const gl=GM.filter(g=>g.themes.includes(id)); return gl.length?`<div class="small"><b>เชื่อมกับเทรนด์โลก:</b> ${gl.map(g=>`<a href="#gm-${g.id}" class="pill t-d" style="text-decoration:none">${esc(g.short)} · ${esc(ST[g.stage].th)}</a>`).join(' ')}</div>`:''; })()}
+      <div class="small muted">${esc(st.hint)} · ${esc(t.gartner||'')}</div>
+    </article>`));
+  });
+  s.appendChild(g); return s;
+}
+function render(){ app.innerHTML=''; [summary(),curve(),globalMap(),playbook(),feed(),cards()].forEach(x=>x&&app.appendChild(x)); }
+render();
+})();
+</script>
+</body>
+</html>
