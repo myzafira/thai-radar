@@ -190,5 +190,25 @@ function render(){ app.innerHTML=''; [summary(),curve(),globalMap(),playbook(),f
 render();
 })();
 </script>
+<!-- fsz:font-size-control v2 -->
+<style id="fsz-style">
+.fsz{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:2147483000;display:flex;align-items:center;gap:4px;padding:5px;border-radius:12px;background:rgba(10,18,32,.94);border:1px solid rgba(255,255,255,.22);box-shadow:0 4px 18px rgba(0,0,0,.4);font-family:system-ui,-apple-system,sans-serif}
+.fsz button{all:unset;box-sizing:border-box;min-width:44px;height:44px;padding:0 8px;border-radius:8px;color:#f3f6fb;font-weight:700;text-align:center;line-height:44px;cursor:pointer}
+.fsz button[aria-pressed="true"]{background:#e0b24a;color:#0b1526}
+.fsz button:focus-visible{outline:3px solid #2ec4b6;outline-offset:1px}
+@media print{.fsz{display:none}}
+html.fsz-big body *{overflow-wrap:anywhere}
+html.fsz-big body :is(span,a,code,small,b,strong,em,td,th,li,p,div):not(.fsz):not(.fsz *){white-space:normal!important}
+html.fsz-big body pre{white-space:pre-wrap!important}
+html.fsz-big body :is(img,svg,video,canvas,iframe,select,input,textarea,button):not(.fsz *){max-width:100%}
+</style>
+<div class="fsz" role="group" aria-label="ขนาดตัวอักษร" title="ขนาดตัวอักษร">
+<button type="button" data-z="1" aria-label="ขนาดปกติ" style="font-size:14px">ก</button>
+<button type="button" data-z="1.15" aria-label="ใหญ่" style="font-size:17px">ก</button>
+<button type="button" data-z="1.3" aria-label="ใหญ่มาก" style="font-size:20px">ก</button>
+<button type="button" data-z="1.5" aria-label="ใหญ่ที่สุด" style="font-size:23px">ก</button>
+</div>
+<script>(function(){var bar=document.querySelector('.fsz'),bs=bar.querySelectorAll('button');var fixed=[];function fit(z){fixed.forEach(function(el){el.style.gridTemplateColumns=el.getAttribute('data-fsz-g')||'';el.removeAttribute('data-fsz-g')});fixed=[];document.documentElement.classList.add('fsz-big');var els=document.body.getElementsByTagName('*');for(var i=0;i<els.length;i++){var el=els[i];if(el.closest('.fsz'))continue;var d=getComputedStyle(el).display;if((d==='grid'||d==='inline-grid')&&el.scrollWidth>el.clientWidth+1){el.setAttribute('data-fsz-g',el.style.gridTemplateColumns||'');el.style.gridTemplateColumns='minmax(0,1fr)';fixed.push(el)}}var vw=document.documentElement.clientWidth;document.body.querySelectorAll('table').forEach(function(t){if(t.hasAttribute('data-fsz-t'))return;var p=t.parentElement,ps=p?getComputedStyle(p).overflowX:'';if(ps==='auto'||ps==='scroll')return;if(t.scrollWidth>((p&&p.clientWidth)||vw)+1){t.setAttribute('data-fsz-t','');t.style.display='block';t.style.overflowX='auto';t.style.maxWidth='100%'}})}function set(z){z=parseFloat(z)||1.15;document.body.style.zoom=z;fit(z);bar.style.zoom=1/z;bs.forEach(function(b){b.setAttribute('aria-pressed',parseFloat(b.dataset.z)===z?'true':'false')});try{localStorage.setItem('fsz',String(z))}catch(e){}}var z='1.15';try{z=localStorage.getItem('fsz')||'1.15'}catch(e){}if(document.body)set(z);else document.addEventListener('DOMContentLoaded',function(){set(z)});window.addEventListener('load',function(){setTimeout(function(){fit(parseFloat(document.body.style.zoom)||1)},300)});var rt;window.addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(function(){fit(parseFloat(document.body.style.zoom)||1)},200)});bs.forEach(function(b){b.addEventListener('click',function(){set(b.dataset.z)})})})();</script>
+<!-- /fsz -->
 </body>
 </html>
